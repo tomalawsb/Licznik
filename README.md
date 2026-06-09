@@ -1,6 +1,6 @@
 # Licznik jazdy Android
 
-Wersja: **1.7 - 0906260920**
+Wersja: **1.8 - 0906260938**
 
 To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej prędkości i historii jazdy.
 
@@ -68,3 +68,10 @@ Android nie pozwala zwykłej aplikacji instalować aktualizacji całkowicie po c
 Ta paczka zawiera stały klucz podpisu `licznik-release.jks`, żeby kolejne wersje mogły instalować się jako aktualizacja, a nie jako nowa aplikacja.
 
 Dla prywatnego projektu testowego to jest wygodne. Dla publicznej dystrybucji klucz podpisu powinien być trzymany poza repozytorium, najlepiej w GitHub Secrets albo w Google Play App Signing.
+
+
+## Zmiany 1.8 - 0906260938
+- Zmieniono silnik lokalizacji na Fused Location Provider.
+- Dodano stabilizację postoju bez blokowania realnej jazdy.
+- Prędkość jest brana najpierw z wiarygodnego pola speed GPS, a dopiero potem z odległości między punktami.
+- Usunięto zbyt agresywny filtr, który w wersji 1.7 potrafił stale pokazywać 0 km/h.

@@ -39,9 +39,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.7 - 0906260920";
-    public static final String CURRENT_RELEASE_TAG = "v1.7-0906260920";
-    public static final int CURRENT_VERSION_CODE = 7;
+    public static final String VERSION_NAME = "1.8 - 0906260938";
+    public static final String CURRENT_RELEASE_TAG = "v1.8-0906260938";
+    public static final int CURRENT_VERSION_CODE = 8;
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
