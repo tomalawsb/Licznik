@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $RepoUrl = "https://github.com/tomalawsb/Licznik.git"
 $GitUserName = "Tomasz Wolak"
 $GitUserEmail = "wolak82@gmail.com"
-$DefaultCommitMessage = "Licznik jazdy PWA 1.0 - 0906260737"
+$DefaultCommitMessage = "Licznik jazdy PWA 1.1 - 0906260752"
 
 function Stop-WithMessage($Message) {
     Write-Host ""
@@ -101,5 +101,5 @@ if ($LASTEXITCODE -ne 0) { Stop-WithMessage "Nie udalo sie wyslac projektu na Gi
 Set-Location $ProjectPath
 Write-Host "========================================"
 Ok "Gotowe. Projekt zostal wyslany na GitHub."
-Write-Host "Adres strony po wlaczeniu GitHub Pages: https://tomalawsb.github.io/Licznik/"
+Write-Host "Adres strony po wlaczeniu GitHub Pages: https://tomalawsb.github.io/Licznik/?v=1_1_0906260752"
 Write-Host "========================================"

@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const APP_VERSION = "1.0 - 0906260737";
+  const APP_VERSION = "1.1 - 0906260752";
   const SETTINGS_KEY = "licznik_jazdy_settings_v1";
   const HISTORY_KEY = "licznik_jazdy_history_v1";
   const $ = id => document.getElementById(id);
