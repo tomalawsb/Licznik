@@ -1,6 +1,6 @@
 # Licznik jazdy Android
 
-Wersja: **1.8 - 0906260938**
+Wersja: **1.9 - 0906261049**
 
 To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej prędkości i historii jazdy.
 
@@ -82,8 +82,14 @@ android.enableJetifier=true
 
 Poprawia to błąd GitHub Actions związany z zależnościami AndroidX/Google Play Services przy budowaniu `assembleRelease`.
 
-## Zmiany 1.8 - 0906260938
+## Zmiany 1.9 - 0906261049
 - Zmieniono silnik lokalizacji na Fused Location Provider.
 - Dodano stabilizację postoju bez blokowania realnej jazdy.
 - Prędkość jest brana najpierw z wiarygodnego pola speed GPS, a dopiero potem z odległości między punktami.
 - Usunięto zbyt agresywny filtr, który w wersji 1.7 potrafił stale pokazywać 0 km/h.
+
+
+## 1.9 - 0906261049
+- Przebudowany wygląd pod mockup premium.
+- Historia jazdy jako czytelne karty z mapą bez nachodzących tekstów.
+- Spokojniejsza kolorystyka, bardziej profesjonalne przyciski i kafelki.

@@ -39,9 +39,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.8 - 0906260938";
-    public static final String CURRENT_RELEASE_TAG = "v1.8-0906260938";
-    public static final int CURRENT_VERSION_CODE = 8;
+    public static final String VERSION_NAME = "1.9 - 0906261049";
+    public static final String CURRENT_RELEASE_TAG = "v1.9-0906261049";
+    public static final int CURRENT_VERSION_CODE = 9;
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -49,13 +49,13 @@ public class MainActivity extends android.app.Activity {
     private final int GREEN = Color.rgb(34, 197, 94);
     private final int GREEN_DARK = Color.rgb(22, 163, 74);
     private final int BLUE = Color.rgb(37, 99, 235);
-    private final int ORANGE = Color.rgb(249, 115, 22);
-    private final int PURPLE = Color.rgb(124, 58, 237);
+    private final int ORANGE = Color.rgb(234, 88, 12);
+    private final int PURPLE = Color.rgb(99, 102, 241);
     private final int RED = Color.rgb(239, 68, 68);
     private final int NAVY = Color.rgb(8, 24, 64);
     private final int MUTED = Color.rgb(100, 116, 139);
-    private final int BORDER = Color.rgb(226, 232, 240);
-    private final int BG = Color.rgb(247, 250, 255);
+    private final int BORDER = Color.rgb(221, 228, 238);
+    private final int BG = Color.rgb(248, 251, 255);
 
     private LinearLayout contentBox;
     private LinearLayout controlsRow;
@@ -181,8 +181,8 @@ public class MainActivity extends android.app.Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(18), dp(10), dp(18), dp(6));
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(78)));
+        header.setPadding(dp(18), dp(8), dp(18), dp(4));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(74)));
 
         TextView bikeIcon = circleText("🚲", 46, Color.WHITE, GREEN_DARK, 21);
         bikeIcon.setElevation(dp(4));
@@ -193,21 +193,21 @@ public class MainActivity extends android.app.Activity {
         titleBox.setPadding(dp(12), 0, 0, 0);
         header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
 
-        TextView title = text("Licznik jazdy", 21, NAVY, true);
+        TextView title = text("Licznik jazdy", 22, NAVY, true);
         title.setSingleLine(true);
         titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
         statusText = text("GPS gotowy", 13, MUTED, false);
         statusText.setSingleLine(true);
         titleBox.addView(statusText, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 17, true);
+        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 15, true);
         clockPill.setElevation(dp(4));
-        header.addView(clockPill, new LinearLayout.LayoutParams(dp(82), dp(50)));
+        header.addView(clockPill, new LinearLayout.LayoutParams(dp(76), dp(46)));
 
-        TextView settings = circleText("⚙", 50, Color.WHITE, NAVY, 23);
+        TextView settings = circleText("⚙", 46, Color.WHITE, NAVY, 22);
         settings.setElevation(dp(4));
         settings.setOnClickListener(v -> showSettings());
-        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(54), dp(54));
+        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(50), dp(50));
         setLp.leftMargin = dp(10);
         header.addView(settings, setLp);
 
@@ -222,14 +222,14 @@ public class MainActivity extends android.app.Activity {
         controlsRow.setGravity(Gravity.CENTER);
         controlsRow.setPadding(dp(14), dp(8), dp(14), dp(8));
         controlsRow.setBackgroundColor(Color.WHITE);
-        root.addView(controlsRow, new LinearLayout.LayoutParams(-1, dp(82)));
+        root.addView(controlsRow, new LinearLayout.LayoutParams(-1, dp(76)));
         buildControls();
 
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(dp(10), dp(4), dp(10), dp(6));
         nav.setBackgroundColor(Color.WHITE);
-        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(66)));
+        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(62)));
         navRide = navItem("🚲\nJazda", true);
         navHistory = navItem("☰\nHistoria", false);
         navStats = navItem("▥\nStatystyki", false);
@@ -247,8 +247,8 @@ public class MainActivity extends android.app.Activity {
         primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
         primaryActionLabel = (TextView) primaryActionButton.getChildAt(1);
         controlsRow.addView(primaryActionButton, controlLp(1.55f));
-        controlsRow.addView(actionBtn("■", "Stop", RED, v -> stopRide()), controlLp(1.0f));
-        controlsRow.addView(actionBtn("↻", "Reset", Color.rgb(100, 116, 139), v -> resetRide()), controlLp(1.0f));
+        controlsRow.addView(secondaryActionBtn("■", "Stop", RED, v -> stopRide()), controlLp(0.90f));
+        controlsRow.addView(secondaryActionBtn("↻", "Reset", Color.rgb(71, 85, 105), v -> resetRide()), controlLp(0.90f));
         updateControlStates();
     }
 
@@ -260,20 +260,40 @@ public class MainActivity extends android.app.Activity {
 
     private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener) {
         LinearLayout b = new LinearLayout(this);
-        b.setOrientation(LinearLayout.VERTICAL);
+        b.setOrientation(LinearLayout.HORIZONTAL);
         b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(4), dp(6), dp(4), dp(5));
-        b.setBackground(gradient(color, darker(color), 20));
-        b.setElevation(dp(6));
+        b.setPadding(dp(10), 0, dp(10), 0);
+        b.setBackground(gradient(color, darker(color), 18));
+        b.setElevation(dp(5));
         b.setOnClickListener(listener);
         TextView i = text(icon, 20, Color.WHITE, true);
         i.setGravity(Gravity.CENTER);
         i.setIncludeFontPadding(false);
-        b.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView l = text(label, 13, Color.WHITE, true);
-        l.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(34), -1);
+        b.addView(i, ilp);
+        TextView l = text(label, 15, Color.WHITE, true);
+        l.setGravity(Gravity.CENTER_VERTICAL);
         l.setIncludeFontPadding(false);
-        b.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
+        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
+        return b;
+    }
+
+    private LinearLayout secondaryActionBtn(String icon, String label, int color, View.OnClickListener listener) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.HORIZONTAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(7), 0, dp(7), 0);
+        b.setBackground(round(Color.WHITE, 18, BORDER, 1));
+        b.setElevation(dp(3));
+        b.setOnClickListener(listener);
+        TextView i = text(icon, 16, color, true);
+        i.setGravity(Gravity.CENTER);
+        i.setIncludeFontPadding(false);
+        b.addView(i, new LinearLayout.LayoutParams(dp(24), -1));
+        TextView l = text(label, 13, NAVY, true);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        l.setIncludeFontPadding(false);
+        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
         return b;
     }
     private void renderRide() {
@@ -281,17 +301,17 @@ public class MainActivity extends android.app.Activity {
         updateNav();
         controlsRow.setVisibility(View.VISIBLE);
         contentBox.removeAllViews();
-        contentBox.setPadding(dp(16), 0, dp(16), dp(12));
+        contentBox.setPadding(dp(16), 0, dp(16), dp(10));
 
         LinearLayout modeCard = card();
-        modeCard.setPadding(dp(16), dp(10), dp(16), dp(12));
-        TextView label = text("Tryb jazdy", 16, MUTED, true);
+        modeCard.setPadding(dp(14), dp(9), dp(14), dp(10));
+        TextView label = text("Tryb jazdy", 15, MUTED, true);
         modeCard.addView(label, new LinearLayout.LayoutParams(-1, dp(24)));
         LinearLayout seg = new LinearLayout(this);
         seg.setGravity(Gravity.CENTER);
         seg.setPadding(dp(5), dp(5), dp(5), dp(5));
         seg.setBackground(round(Color.rgb(248,250,252), 22, Color.rgb(218,226,236), 1));
-        LinearLayout.LayoutParams segLp = new LinearLayout.LayoutParams(-1, dp(58));
+        LinearLayout.LayoutParams segLp = new LinearLayout.LayoutParams(-1, dp(46));
         segLp.topMargin = dp(6);
         modeCard.addView(seg, segLp);
         modeRower = modeButton("🚲  Rower");
@@ -300,55 +320,55 @@ public class MainActivity extends android.app.Activity {
         seg.addView(modeSamochod, new LinearLayout.LayoutParams(0, -1, 1));
         modeRower.setOnClickListener(v -> setMode("Rower"));
         modeSamochod.setOnClickListener(v -> setMode("Samochód"));
-        contentBox.addView(modeCard, new LinearLayout.LayoutParams(-1, dp(108)));
+        contentBox.addView(modeCard, new LinearLayout.LayoutParams(-1, dp(92)));
 
         LinearLayout speedCard = card();
-        speedCard.setPadding(dp(12), dp(4), dp(12), dp(12));
+        speedCard.setPadding(dp(12), dp(2), dp(12), dp(12));
         gaugeView = new SpeedGaugeView(this);
-        speedCard.addView(gaugeView, new LinearLayout.LayoutParams(-1, dp(196)));
+        speedCard.addView(gaugeView, new LinearLayout.LayoutParams(-1, dp(178)));
 
         LinearLayout avg = new LinearLayout(this);
         avg.setOrientation(LinearLayout.HORIZONTAL);
         avg.setGravity(Gravity.CENTER_VERTICAL);
         avg.setPadding(dp(14), 0, dp(14), 0);
-        avg.setBackground(round(Color.rgb(240,253,244), 19, Color.rgb(187,247,208), 1));
-        TextView avgIcon = circleText("↗", 52, GREEN, Color.WHITE, 25);
+        avg.setBackground(round(Color.rgb(246,254,249), 18, Color.rgb(187,247,208), 1));
+        TextView avgIcon = circleText("↗", 44, Color.WHITE, GREEN_DARK, 22);
         avg.addView(avgIcon);
         LinearLayout avgTexts = new LinearLayout(this);
         avgTexts.setOrientation(LinearLayout.VERTICAL);
         avgTexts.setPadding(dp(14),0,0,0);
         avgTexts.addView(text("Średnia prędkość", 16, NAVY, true), new LinearLayout.LayoutParams(-1, 0, 1));
-        avgText = text("0.000 km/h", 30, GREEN_DARK, true);
+        avgText = text("0.000 km/h", 23, GREEN_DARK, true);
         avgTexts.addView(avgText, new LinearLayout.LayoutParams(-1, 0, 1));
         avg.addView(avgTexts, new LinearLayout.LayoutParams(0, -1, 1));
-        LinearLayout.LayoutParams avgLp = new LinearLayout.LayoutParams(-1, dp(78));
+        LinearLayout.LayoutParams avgLp = new LinearLayout.LayoutParams(-1, dp(64));
         speedCard.addView(avg, avgLp);
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-1, dp(304));
+        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-1, dp(258));
         speedLp.topMargin = dp(12);
         contentBox.addView(speedCard, speedLp);
 
         LinearLayout stats = new LinearLayout(this);
         stats.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(-1, dp(88));
-        statsLp.topMargin = dp(12);
+        statsLp.topMargin = dp(10);
         contentBox.addView(stats, statsLp);
-        distanceText = addStat(stats, "⌁", "Dystans", "0.00\nkm", BLUE);
-        timeText = addStat(stats, "◴", "Czas", "00:00:00\njazdy", ORANGE);
-        maxText = addStat(stats, "▲", "Maks.", "0.0\nkm/h", PURPLE);
+        distanceText = addStat(stats, "⌁", "Dystans", "0.00\nkm", GREEN_DARK);
+        timeText = addStat(stats, "◴", "Czas", "00:00:00\njazdy", NAVY);
+        maxText = addStat(stats, "▲", "Maks.", "0.0\nkm/h", NAVY);
 
 
         LinearLayout mapCard = card();
-        mapCard.setPadding(dp(14), dp(9), dp(14), dp(14));
+        mapCard.setPadding(dp(14), dp(8), dp(14), dp(12));
         LinearLayout mapHeader = new LinearLayout(this);
         mapHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView mapTitle = text("Trasa GPS", 16, MUTED, true);
+        TextView mapTitle = text("Trasa GPS", 15, NAVY, true);
         mapHeader.addView(mapTitle, new LinearLayout.LayoutParams(0, -1, 1));
-        accuracyText = text("Dokładność: --", 14, MUTED, false);
+        accuracyText = text("Dokładność: --", 13, MUTED, false);
         mapHeader.addView(accuracyText);
-        mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(32)));
+        mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(28)));
         routeView = new RouteView(this);
-        mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(132)));
-        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(190));
+        mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(104)));
+        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(152));
         mapLp.topMargin = dp(12);
         contentBox.addView(mapCard, mapLp);
         updateModeButtons();
@@ -361,10 +381,10 @@ public class MainActivity extends android.app.Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
         box.setPadding(dp(4), dp(5), dp(4), dp(5));
-        box.setBackground(round(Color.WHITE, 21, BORDER, 1));
-        box.setElevation(dp(3));
-        TextView i = text(icon, 15, color, true); i.setGravity(Gravity.CENTER); box.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView l = text(label, 11, Color.rgb(51,65,85), true); l.setGravity(Gravity.CENTER); box.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
+        box.setBackground(round(Color.WHITE, 18, BORDER, 1));
+        box.setElevation(dp(2));
+        TextView i = text(icon, 13, color, true); i.setGravity(Gravity.CENTER); box.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView l = text(label, 10, MUTED, true); l.setGravity(Gravity.CENTER); box.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView v = text(value, 14, color, true); v.setGravity(Gravity.CENTER); box.addView(v, new LinearLayout.LayoutParams(-1, 0, 2));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1); lp.setMargins(dp(4),0,dp(4),0);
         parent.addView(box, lp);
@@ -372,7 +392,7 @@ public class MainActivity extends android.app.Activity {
     }
 
     private TextView modeButton(String label) {
-        TextView t = text(label, 17, NAVY, true);
+        TextView t = text(label, 14, NAVY, true);
         t.setGravity(Gravity.CENTER);
         return t;
     }
@@ -468,7 +488,7 @@ public class MainActivity extends android.app.Activity {
     private void renderHistory() {
         currentTab = 1; updateNav(); controlsRow.setVisibility(View.GONE);
         contentBox.removeAllViews(); contentBox.setPadding(dp(16), 0, dp(16), dp(18));
-        contentBox.addView(text("Historia jazdy", 24, NAVY, true), new LinearLayout.LayoutParams(-1, dp(52)));
+        contentBox.addView(text("Historia jazdy", 22, NAVY, true), new LinearLayout.LayoutParams(-1, dp(48)));
         try {
             JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
             if (arr.length() == 0) {
@@ -486,24 +506,50 @@ public class MainActivity extends android.app.Activity {
     private void addHistoryCard(JSONObject o, boolean expanded) throws Exception {
         LinearLayout card = card();
         card.setPadding(dp(14), dp(12), dp(14), dp(12));
-        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
         String mode = o.optString("mode", "Rower");
         int accent = mode.equals("Samochód") ? BLUE : GREEN;
-        TextView icon = circleText(mode.equals("Samochód") ? "🚗" : "🚲", 48, accent, Color.WHITE, 22);
+        TextView icon = circleText(mode.equals("Samochód") ? "🚗" : "🚲", 46, accent, Color.WHITE, 21);
         row.addView(icon);
-        LinearLayout names = new LinearLayout(this); names.setOrientation(LinearLayout.VERTICAL); names.setPadding(dp(12),0,0,0);
-        names.addView(text(mode, 17, accent, true), new LinearLayout.LayoutParams(-1, 0, 1));
-        names.addView(text(o.optString("date", ""), 13, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout names = new LinearLayout(this);
+        names.setOrientation(LinearLayout.VERTICAL);
+        names.setPadding(dp(12),0,0,0);
+        names.addView(text(mode, 15, NAVY, true), new LinearLayout.LayoutParams(-1, 0, 1));
+        names.addView(text(o.optString("date", ""), 12, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
         row.addView(names, new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(text(String.format(Locale.US, "%.2f km", o.optDouble("distanceKm", 0)), 18, BLUE, true));
-        card.addView(row, new LinearLayout.LayoutParams(-1, dp(56)));
-        TextView line = text(String.format(Locale.US, "⏱ %s     śr. %.3f km/h     maks. %.1f km/h", o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0)), 14, Color.rgb(51,65,85), true);
-        card.addView(line, new LinearLayout.LayoutParams(-1, dp(32)));
-        if (expanded) {
-            RouteView rv = new RouteView(this); rv.setPointsFromJson(o.optString("pointsJson", "[]"));
-            LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(145)); rvLp.topMargin = dp(8); card.addView(rv, rvLp);
-        }
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, expanded ? dp(262) : dp(112)); lp.topMargin = dp(10); contentBox.addView(card, lp);
+
+        TextView dist = text(String.format(Locale.US, "%.2f km  ›", o.optDouble("distanceKm", 0)), 18, NAVY, true);
+        dist.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        row.addView(dist, new LinearLayout.LayoutParams(dp(108), -1));
+        card.addView(row, new LinearLayout.LayoutParams(-1, dp(52)));
+
+        LinearLayout metrics = new LinearLayout(this);
+        metrics.setGravity(Gravity.CENTER_VERTICAL);
+        metrics.setPadding(0, dp(4), 0, dp(4));
+        metrics.addView(metricItem("⏱", o.optString("elapsed", "00:00:00")), new LinearLayout.LayoutParams(0, -1, 1));
+        metrics.addView(metricItem("śr.", String.format(Locale.US, "%.3f", o.optDouble("avg", 0)) + " km/h"), new LinearLayout.LayoutParams(0, -1, 1.25f));
+        metrics.addView(metricItem("maks.", String.format(Locale.US, "%.1f", o.optDouble("max", 0)) + " km/h"), new LinearLayout.LayoutParams(0, -1, 1));
+        card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(34)));
+
+        RouteView rv = new RouteView(this);
+        rv.setPointsFromJson(o.optString("pointsJson", "[]"));
+        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(96));
+        rvLp.topMargin = dp(8);
+        card.addView(rv, rvLp);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(214));
+        lp.topMargin = dp(10);
+        contentBox.addView(card, lp);
+    }
+
+    private TextView metricItem(String prefix, String value) {
+        TextView t = text(prefix + "  " + value, 11, Color.rgb(51,65,85), true);
+        t.setGravity(Gravity.CENTER);
+        t.setSingleLine(true);
+        return t;
     }
 
     private void renderStats() {
@@ -694,15 +740,15 @@ public class MainActivity extends android.app.Activity {
         if (!running) {
             primaryActionIcon.setText("▶");
             primaryActionLabel.setText("Start");
-            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 20));
+            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
         } else if (paused) {
             primaryActionIcon.setText("▶");
             primaryActionLabel.setText("Wznów");
-            primaryActionButton.setBackground(gradient(BLUE, darker(BLUE), 20));
+            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
         } else {
             primaryActionIcon.setText("Ⅱ");
             primaryActionLabel.setText("Pauza");
-            primaryActionButton.setBackground(gradient(BLUE, darker(BLUE), 20));
+            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
         }
     }
 
@@ -725,8 +771,8 @@ public class MainActivity extends android.app.Activity {
     private LinearLayout card() {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackground(round(Color.WHITE, 26, BORDER, 1));
-        c.setElevation(dp(4));
+        c.setBackground(round(Color.WHITE, 22, BORDER, 1));
+        c.setElevation(dp(2));
         return c;
     }
 

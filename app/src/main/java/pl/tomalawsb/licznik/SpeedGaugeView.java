@@ -28,7 +28,7 @@ public class SpeedGaugeView extends View {
         if (Math.abs(targetSpeed - speed) < 0.04f) return;
         if (animator != null) animator.cancel();
         animator = ValueAnimator.ofFloat(speed, targetSpeed);
-        animator.setDuration(320);
+        animator.setDuration(380);
         animator.setInterpolator(new DecelerateInterpolator());
         animator.addUpdateListener(a -> {
             speed = (float) a.getAnimatedValue();
@@ -42,10 +42,10 @@ public class SpeedGaugeView extends View {
         int w = getWidth();
         int h = getHeight();
         float cx = w / 2f;
-        float cy = h * 0.82f;
-        float stroke = dp(15);
-        float pad = dp(25);
-        RectF arc = new RectF(pad, dp(14), w - pad, h + dp(150));
+        float cy = h * 0.86f;
+        float stroke = dp(12);
+        float pad = dp(30);
+        RectF arc = new RectF(pad, dp(18), w - pad, h + dp(120));
 
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeCap(Paint.Cap.ROUND);
@@ -58,11 +58,12 @@ public class SpeedGaugeView extends View {
         p.setColor(GREEN);
         c.drawArc(arc, 205, sweep, false, p);
 
+        // drobne kreski licznika, spokojniejsze niż w prototypie
         p.setStrokeWidth(dp(2));
         for (int i = 0; i <= 10; i++) {
             double angle = Math.toRadians(205 + (130.0 / 10.0) * i);
-            float r1 = Math.min(w, h) * 0.39f;
-            float r2 = r1 - dp(i % 5 == 0 ? 13 : 8);
+            float r1 = Math.min(w, h) * 0.38f;
+            float r2 = r1 - dp(i % 5 == 0 ? 11 : 7);
             float x1 = cx + (float)Math.cos(angle) * r1;
             float y1 = cy + (float)Math.sin(angle) * r1;
             float x2 = cx + (float)Math.cos(angle) * r2;
@@ -75,16 +76,16 @@ public class SpeedGaugeView extends View {
         p.setTextAlign(Paint.Align.CENTER);
         p.setFakeBoldText(true);
         p.setColor(GREEN_DARK);
-        p.setTextSize(dp(21));
-        c.drawText("⌁", cx, dp(60), p);
+        p.setTextSize(dp(18));
+        c.drawText("⌁", cx, dp(52), p);
 
         p.setColor(NAVY);
-        p.setTextSize(dp(60));
-        c.drawText(String.format(Locale.US, "%.1f", speed), cx, h / 2f + dp(20), p);
+        p.setTextSize(dp(58));
+        c.drawText(String.format(Locale.US, "%.1f", speed), cx, h / 2f + dp(16), p);
 
-        p.setTextSize(dp(24));
+        p.setTextSize(dp(22));
         p.setColor(MUTED);
-        c.drawText("km/h", cx, h / 2f + dp(56), p);
+        c.drawText("km/h", cx, h / 2f + dp(50), p);
     }
 
     private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density + 0.5f); }
