@@ -8,7 +8,27 @@ android {
         applicationId 'pl.tomalawsb.licznik'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '1.3 - 0906260810'
+        versionCode 4
+        versionName '1.4 - 0906260834'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('licznik-release.jks')
+            storePassword 'Licznik2026!'
+            keyAlias 'licznik'
+            keyPassword 'Licznik2026!'
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            debuggable false
+        }
+        debug {
+            debuggable true
+        }
     }
 }

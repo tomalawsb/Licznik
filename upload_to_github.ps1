@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $RepoUrl = "https://github.com/tomalawsb/Licznik.git"
 $GitUserName = "Tomasz Wolak"
 $GitUserEmail = "wolak82@gmail.com"
-$DefaultCommitMessage = "Licznik Android v1.3 - 0906260810"
+$DefaultCommitMessage = "Licznik Android v1.4 - 0906260834"
 
 function Stop-WithMessage($Message) {
     Write-Host ""
@@ -98,5 +98,5 @@ Set-Location $ProjectPath
 
 Write-Host "========================================"
 Ok "Gotowe. Projekt zostal wyslany na GitHub."
-Write-Host "Po wyslaniu wejdz w GitHub: Actions > Build Android APK i pobierz app-debug.apk."
+Write-Host "Po wyslaniu GitHub Actions zbuduje APK release i utworzy GitHub Release. Pobierz artifact Licznik-release-apk albo plik APK z Releases."
 Write-Host "========================================"

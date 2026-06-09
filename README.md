@@ -1,90 +1,63 @@
 # Licznik jazdy Android
 
-Wersja: **1.3 - 0906260810**
+Wersja: **1.4 - 0906260834**
 
-To jest natywna wersja Android, a nie zwykła PWA. Została przygotowana po to, żeby pomiar jazdy mógł działać po zablokowaniu telefonu.
+To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej prędkości i historii jazdy.
 
 ## Co robi aplikacja
 
 - ręczny tryb jazdy: **Rower / Samochód**,
-- aktualna prędkość,
-- średnia prędkość z trzema miejscami po przecinku,
+- aktualna prędkość GPS,
+- średnia prędkość z dokładnością do 3 miejsc po przecinku,
 - dystans,
 - czas jazdy,
 - prędkość maksymalna,
-- punkty GPS,
-- podgląd trasy,
-- historia zakończonych jazd,
+- historia przejazdów,
 - statystyki,
-- stałe powiadomienie podczas jazdy,
-- pomiar GPS w `Foreground Service` z typem `location`.
+- pomiar GPS jako Foreground Service z powiadomieniem,
+- ustawienia aplikacji,
+- sprawdzanie aktualizacji z GitHub Releases.
 
-## Ważne
+## Działanie po zablokowaniu telefonu
 
-Pomiar po zablokowaniu telefonu działa przez natywną usługę Android:
+Pomiar działa przez natywną usługę Android `RideTrackingService` z typem:
 
 ```xml
-<service
-    android:name=".RideTrackingService"
-    android:exported="false"
-    android:foregroundServiceType="location" />
+android:foregroundServiceType="location"
 ```
 
-Aplikacja prosi o:
+Podczas pomiaru aplikacja pokazuje stałe powiadomienie. To jest wymagane przez Androida, żeby GPS mógł działać po zablokowaniu ekranu.
 
-- dokładną lokalizację,
-- powiadomienia,
-- usługę pierwszoplanową lokalizacji.
+Jeśli telefon mimo tego przerywa pomiar, wyłącz oszczędzanie baterii dla aplikacji **Licznik jazdy**.
 
-Dla najlepszej stabilności warto w ustawieniach Androida wyłączyć oszczędzanie baterii dla tej aplikacji.
+## Budowanie APK
 
-## Jak zbudować APK lokalnie
+Na GitHubie:
 
-1. Otwórz folder projektu w Android Studio.
-2. Poczekaj, aż Gradle zsynchronizuje projekt.
-3. Wybierz: **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-4. APK będzie w:
+1. Wejdź w **Actions**.
+2. Uruchom workflow **Build Android APK**.
+3. Po zakończeniu pobierz artifact **Licznik-release-apk**.
+
+Workflow buduje plik:
 
 ```text
-app/build/outputs/apk/debug/app-debug.apk
+app-release.apk
 ```
 
-## Jak zbudować APK przez GitHub
-
-W paczce jest workflow:
+oraz publikuje go jako GitHub Release:
 
 ```text
-.github/workflows/android-build.yml
+Licznik-v1.4-0906260834.apk
 ```
 
-Po wysłaniu na GitHub wejdź w repozytorium:
+## Aktualizacje aplikacji
 
-```text
-Actions > Build Android APK
-```
+Aplikacja może sprawdzać GitHub Releases i otworzyć najnowszy plik APK do pobrania.
 
-Po zakończeniu budowania pobierz artifact:
+Android nie pozwala zwykłej aplikacji instalować aktualizacji całkowicie po cichu. Użytkownik musi potwierdzić instalację APK.
 
-```text
-Licznik-debug-apk
-```
+## Ważne o podpisie APK
 
-W środku będzie plik:
+Ta paczka zawiera stały klucz podpisu `licznik-release.jks`, żeby kolejne wersje mogły instalować się jako aktualizacja, a nie jako nowa aplikacja.
 
-```text
-app-debug.apk
-```
-
-## Wysyłka na GitHub
-
-Uruchom PowerShell w głównym folderze projektu:
-
-```powershell
-.\upload_to_github.ps1
-```
-
-Skrypt wysyła projekt do:
-
-```text
-https://github.com/tomalawsb/Licznik.git
-```
+Dla prywatnego projektu testowego to jest wygodne. Dla publicznej dystrybucji klucz podpisu powinien być trzymany poza repozytorium, najlepiej w GitHub Secrets albo w Google Play App Signing.
