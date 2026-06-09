@@ -52,13 +52,14 @@ public class RideTrackingService extends Service implements LocationListener {
     private double maxSpeedKmh = 0;
     private float lastAccuracy = -1;
     private Location lastLocation;
+    private int movementConfidence = 0;
     private long lastNotificationUpdate = 0;
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private final Runnable tickRunnable = new Runnable() {
         @Override public void run() {
             if (running && !paused) {
-                currentSpeedKmh += (targetSpeedKmh - currentSpeedKmh) * 0.22;
-                if (Math.abs(currentSpeedKmh) < 0.05 && targetSpeedKmh < 0.05) currentSpeedKmh = 0;
+                currentSpeedKmh += (targetSpeedKmh - currentSpeedKmh) * 0.18;
+                if (Math.abs(currentSpeedKmh) < 0.08 && targetSpeedKmh < 0.08) currentSpeedKmh = 0;
                 long now = SystemClock.elapsedRealtime();
                 if (now - lastNotificationUpdate >= 1000) {
                     updateNotification();
@@ -109,6 +110,7 @@ public class RideTrackingService extends Service implements LocationListener {
         if (!running || paused) return;
         elapsedBeforePause += SystemClock.elapsedRealtime() - startElapsed;
         paused = true;
+        movementConfidence = 0;
         targetSpeedKmh = 0;
         currentSpeedKmh = 0;
         tickHandler.removeCallbacks(tickRunnable);
@@ -122,6 +124,7 @@ public class RideTrackingService extends Service implements LocationListener {
         paused = false;
         startElapsed = SystemClock.elapsedRealtime();
         lastLocation = null;
+        movementConfidence = 0;
         requestLocation();
         tickHandler.removeCallbacks(tickRunnable);
         tickHandler.post(tickRunnable);
@@ -167,6 +170,7 @@ public class RideTrackingService extends Service implements LocationListener {
         currentSpeedKmh = 0;
         targetSpeedKmh = 0;
         maxSpeedKmh = 0;
+        movementConfidence = 0;
         lastNotificationUpdate = 0;
         lastAccuracy = -1;
         lastLocation = null;
@@ -215,10 +219,8 @@ public class RideTrackingService extends Service implements LocationListener {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
-        } catch (Exception ignored) {}
-        try {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1500, 1, this);
+            // Do licznika jazdy używamy GPS. Provider sieciowy potrafi w domu generować skoki pozycji.
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, this);
         } catch (Exception ignored) {}
     }
 
@@ -229,36 +231,94 @@ public class RideTrackingService extends Service implements LocationListener {
     @Override public void onLocationChanged(Location loc) {
         if (!running || paused || loc == null) return;
         if (loc.hasAccuracy()) lastAccuracy = loc.getAccuracy();
-        if (loc.hasAccuracy() && loc.getAccuracy() > 80) { sendUpdate(); return; }
 
         double maxAllowed = "Samochód".equals(mode) ? 260.0 : 90.0;
-        double speedKmh = loc.hasSpeed() ? loc.getSpeed() * 3.6 : 0;
-        if (speedKmh > maxAllowed) speedKmh = 0;
+        double minMovingSpeed = "Samochód".equals(mode) ? 7.0 : 3.5;
+        double startSpikeLimit = "Samochód".equals(mode) ? 55.0 : 18.0;
+        double maxAccuracy = "Samochód".equals(mode) ? 55.0 : 45.0;
 
-        if (lastLocation != null) {
-            float meters = lastLocation.distanceTo(loc);
-            long dtMs = loc.getTime() - lastLocation.getTime();
-            if (dtMs < 800) {
-                sendUpdate();
-                return;
-            }
-            double computedSpeed = (meters / (dtMs / 1000.0)) * 3.6;
-
-            if (computedSpeed > maxAllowed || meters > 250) {
-                lastLocation = loc;
-                sendUpdate();
-                return;
-            }
-
-            if (speedKmh <= 0) speedKmh = computedSpeed;
-            if (meters >= 1.5) distanceMeters += meters;
+        if (loc.hasAccuracy() && loc.getAccuracy() > maxAccuracy) {
+            forceStationary(false);
+            sendUpdate();
+            return;
         }
 
-        targetSpeedKmh = Math.max(0, Math.min(speedKmh, maxAllowed));
+        if (lastLocation == null) {
+            lastLocation = loc;
+            addPoint(loc);
+            forceStationary(false);
+            sendUpdate();
+            return;
+        }
+
+        long dtMs = loc.getTime() - lastLocation.getTime();
+        if (dtMs <= 0) dtMs = 1000;
+        if (dtMs < 1200) {
+            sendUpdate();
+            return;
+        }
+
+        float meters = lastLocation.distanceTo(loc);
+        double seconds = dtMs / 1000.0;
+        double computedSpeed = seconds > 0 ? (meters / seconds) * 3.6 : 0;
+        double accuracy = loc.hasAccuracy() ? loc.getAccuracy() : 20.0;
+        double previousAccuracy = lastAccuracy > 0 ? lastAccuracy : accuracy;
+        double noiseMeters = Math.max("Samochód".equals(mode) ? 15.0 : 12.0, Math.max(accuracy, previousAccuracy) * 2.5);
+
+        if (meters > 500 || computedSpeed > maxAllowed) {
+            // Duży skok GPS: ustawiamy nowy punkt odniesienia, ale nie naliczamy trasy.
+            lastLocation = loc;
+            forceStationary(true);
+            sendUpdate();
+            return;
+        }
+
+        boolean looksLikeNoise = meters < noiseMeters || computedSpeed < minMovingSpeed;
+        if (looksLikeNoise) {
+            // Stanie w miejscu: aktualizujemy punkt odniesienia, ale nie doliczamy dystansu i wygaszamy prędkość do zera.
+            lastLocation = loc;
+            forceStationary(true);
+            sendUpdate();
+            return;
+        }
+
+        if (currentSpeedKmh < 1.0 && computedSpeed > startSpikeLimit && meters < 55) {
+            // Typowy objaw postoju w domu: GPS przeskakuje o kilkanaście metrów i udaje ruch.
+            lastLocation = loc;
+            forceStationary(true);
+            sendUpdate();
+            return;
+        }
+
+        movementConfidence++;
+        if (movementConfidence < 3) {
+            // Czekamy na potwierdzenie ruchu z kilku kolejnych punktów, żeby nie reagować na jednorazowe skoki GPS.
+            targetSpeedKmh = 0;
+            sendUpdate();
+            return;
+        }
+        if (movementConfidence > 5) movementConfidence = 5;
+
+        double rawSpeed = loc.hasSpeed() ? loc.getSpeed() * 3.6 : 0;
+        double acceptedSpeed = computedSpeed;
+        if (rawSpeed >= minMovingSpeed && rawSpeed <= maxAllowed) {
+            if (Math.abs(rawSpeed - computedSpeed) < Math.max(12.0, computedSpeed * 0.8)) {
+                acceptedSpeed = (rawSpeed + computedSpeed) / 2.0;
+            }
+        }
+
+        distanceMeters += meters;
+        targetSpeedKmh = Math.max(0, Math.min(acceptedSpeed, maxAllowed));
         maxSpeedKmh = Math.max(maxSpeedKmh, targetSpeedKmh);
         lastLocation = loc;
         addPoint(loc);
         sendUpdate();
+    }
+
+    private void forceStationary(boolean fadeSpeed) {
+        movementConfidence = 0;
+        targetSpeedKmh = 0;
+        if (!fadeSpeed) currentSpeedKmh = 0;
     }
 
     private void addPoint(Location loc) {

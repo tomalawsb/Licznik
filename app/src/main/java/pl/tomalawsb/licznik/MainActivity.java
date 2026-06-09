@@ -39,7 +39,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.6 - 0906260918";
+    public static final String VERSION_NAME = "1.7 - 0906260920";
+    public static final String CURRENT_RELEASE_TAG = "v1.7-0906260920";
+    public static final int CURRENT_VERSION_CODE = 7;
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -548,8 +550,7 @@ public class MainActivity extends android.app.Activity {
         autoUpdate.setOnCheckedChangeListener((buttonView, isChecked) -> prefs().edit().putBoolean("auto_update_check", isChecked).apply());
         box.addView(autoUpdate, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        box.addView(settingsButton("Sprawdź aktualizację z GitHuba", BLUE, v -> checkForUpdates(true)));
-        box.addView(settingsButton("Otwórz stronę najnowszej wersji", BLUE, v -> openUrl(GITHUB_RELEASES)));
+        box.addView(settingsButton("Sprawdź aktualizację", BLUE, v -> checkForUpdates(true)));
         box.addView(settingsButton("Zezwolenia i ustawienia aplikacji", GREEN, v -> openAppSettings()));
         box.addView(settingsButton("Ustawienia baterii Android", ORANGE, v -> openBatterySettings()));
         box.addView(settingsButton("Wyczyść historię jazdy", RED, v -> confirmClearHistory()));
@@ -601,35 +602,43 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void checkForUpdates(boolean showNoUpdate) {
-        Toast.makeText(this, "Sprawdzam aktualizacje...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Sprawdzam aktualizację...", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             String apkUrl = null;
             String tag = null;
             String error = null;
+            int remoteCode = -1;
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(GITHUB_API_LATEST).openConnection();
                 conn.setConnectTimeout(8000);
                 conn.setReadTimeout(8000);
                 conn.setRequestProperty("Accept", "application/vnd.github+json");
                 int code = conn.getResponseCode();
-                if (code == 404) throw new Exception("Nie ma jeszcze opublikowanego Release na GitHubie.");
-                if (code < 200 || code > 299) throw new Exception("GitHub zwrócił kod: " + code);
+                if (code == 404) throw new Exception("Nie ma jeszcze opublikowanej wersji Release.");
+                if (code < 200 || code > 299) throw new Exception("Serwer zwrócił kod: " + code);
                 BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = br.readLine()) != null) sb.append(line);
                 JSONObject root = new JSONObject(sb.toString());
-                tag = root.optString("tag_name", "najnowsza wersja");
-                JSONArray assets = root.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i=0;i<assets.length();i++) {
-                        JSONObject a = assets.getJSONObject(i);
-                        String name = a.optString("name", "").toLowerCase(Locale.ROOT);
-                        if (name.endsWith(".apk")) { apkUrl = a.optString("browser_download_url", null); break; }
+                tag = root.optString("tag_name", "");
+                remoteCode = versionCodeFromTag(tag);
+
+                if (tag.equals(CURRENT_RELEASE_TAG) || (remoteCode > 0 && remoteCode <= CURRENT_VERSION_CODE)) {
+                    apkUrl = null;
+                    error = "Masz aktualną wersję programu.";
+                } else {
+                    JSONArray assets = root.optJSONArray("assets");
+                    if (assets != null) {
+                        for (int i=0;i<assets.length();i++) {
+                            JSONObject a = assets.getJSONObject(i);
+                            String name = a.optString("name", "").toLowerCase(Locale.ROOT);
+                            if (name.endsWith(".apk")) { apkUrl = a.optString("browser_download_url", null); break; }
+                        }
                     }
+                    if (apkUrl == null) throw new Exception("Znaleziono nowszy wpis, ale bez pliku APK.");
                 }
-                if (apkUrl == null) throw new Exception("Release istnieje, ale nie ma w nim pliku APK.");
-            } catch (Exception e) { error = e.getMessage(); }
+            } catch (Exception e) { if (error == null) error = e.getMessage(); }
 
             String finalApkUrl = apkUrl;
             String finalTag = tag;
@@ -638,20 +647,33 @@ public class MainActivity extends android.app.Activity {
                 if (finalApkUrl != null) {
                     new AlertDialog.Builder(this)
                             .setTitle("Dostępna aktualizacja")
-                            .setMessage("Znaleziono wersję: " + finalTag + "\n\nAndroid nie pozwala zwykłej aplikacji zainstalować aktualizacji całkowicie po cichu. Mogę otworzyć plik APK, a Ty potwierdzisz instalację.")
-                            .setPositiveButton("Pobierz APK", (d,w) -> openUrl(finalApkUrl))
+                            .setMessage("Znaleziono wersję: " + finalTag + "\n\nPobiorę plik APK. Android poprosi Cię jeszcze o potwierdzenie instalacji aktualizacji.")
+                            .setPositiveButton("Pobierz", (d,w) -> openUrl(finalApkUrl))
                             .setNegativeButton("Później", null)
                             .show();
                 } else if (showNoUpdate) {
                     new AlertDialog.Builder(this)
                             .setTitle("Aktualizacja")
-                            .setMessage(finalError == null ? "Nie znaleziono aktualizacji." : finalError + "\n\nNa razie możesz pobrać APK z Actions albo utworzyć Release w GitHubie.")
-                            .setPositiveButton("Otwórz GitHub", (d,w) -> openUrl("https://github.com/tomalawsb/Licznik"))
-                            .setNegativeButton("Zamknij", null)
+                            .setMessage(finalError == null ? "Masz aktualną wersję programu." : finalError)
+                            .setPositiveButton("Zamknij", null)
                             .show();
                 }
             });
         }).start();
+    }
+
+    private int versionCodeFromTag(String tag) {
+        if (tag == null) return -1;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("v(\\d+)\\.(\\d+)(?:\\.(\\d+))?.*").matcher(tag);
+            if (!m.matches()) return -1;
+            int major = Integer.parseInt(m.group(1));
+            int minor = Integer.parseInt(m.group(2));
+            int patch = m.group(3) == null ? 0 : Integer.parseInt(m.group(3));
+            // W tym projekcie każda kolejna wersja 1.x ma versionCode = x.
+            if (major == 1) return minor;
+            return major * 1000000 + minor * 1000 + patch;
+        } catch (Exception ignored) { return -1; }
     }
 
     private void openUrl(String url) {
