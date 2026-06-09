@@ -25,6 +25,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,10 +34,12 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.5 - 0906260852";
+    public static final String VERSION_NAME = "1.6 - 0906260918";
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -54,25 +57,30 @@ public class MainActivity extends android.app.Activity {
 
     private LinearLayout contentBox;
     private LinearLayout controlsRow;
+    private LinearLayout primaryActionButton;
+    private TextView primaryActionIcon, primaryActionLabel;
     private TextView clockPill, statusText, modeRower, modeSamochod;
     private SpeedGaugeView gaugeView;
     private RouteView routeView;
-    private TextView avgText, distanceText, timeText, maxText, pointsText, accuracyText;
+    private TextView avgText, distanceText, timeText, maxText, accuracyText;
     private TextView navRide, navHistory, navStats;
     private String selectedMode = "Rower";
     private boolean running = false;
     private boolean paused = false;
     private int currentTab = 0;
     private long lastElapsedMs = 0;
+    private long elapsedBaseMs = 0;
+    private long elapsedSyncRealtime = 0;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable clockUiTicker = new Runnable() {
         @Override public void run() {
+            updateHeaderClock();
+            long displayElapsed = lastElapsedMs;
             if (running && !paused) {
-                String t = formatDuration(lastElapsedMs);
-                if (clockPill != null) clockPill.setText(t);
-                if (timeText != null) timeText.setText(t + "\njazdy");
+                displayElapsed = elapsedBaseMs + Math.max(0, SystemClock.elapsedRealtime() - elapsedSyncRealtime);
             }
+            if (timeText != null) timeText.setText(formatDuration(displayElapsed) + "\njazdy");
             uiHandler.postDelayed(this, 250);
         }
     };
@@ -90,6 +98,8 @@ public class MainActivity extends android.app.Activity {
             double max = intent.getDoubleExtra("max", 0);
             long elapsed = intent.getLongExtra("elapsed", 0);
             lastElapsedMs = elapsed;
+            elapsedBaseMs = elapsed;
+            elapsedSyncRealtime = SystemClock.elapsedRealtime();
             int points = intent.getIntExtra("points", 0);
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
@@ -99,12 +109,11 @@ public class MainActivity extends android.app.Activity {
             if (distanceText != null) distanceText.setText(String.format(Locale.US, "%.2f\nkm", distanceKm));
             if (timeText != null) timeText.setText(formatDuration(elapsed) + "\njazdy");
             if (maxText != null) maxText.setText(String.format(Locale.US, "%.1f\nkm/h", max));
-            if (pointsText != null) pointsText.setText(points + "\nGPS");
-            if (clockPill != null) clockPill.setText(formatDuration(elapsed));
             if (accuracyText != null) accuracyText.setText(accuracy > 0 ? "Dokładność: " + Math.round(accuracy) + " m" : "Dokładność: --");
             if (pointsJson != null && routeView != null) routeView.setPointsFromJson(pointsJson);
             updateModeButtons();
             updateStatus();
+            updateControlStates();
         }
     };
 
@@ -182,14 +191,16 @@ public class MainActivity extends android.app.Activity {
         titleBox.setPadding(dp(12), 0, 0, 0);
         header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
 
-        TextView title = text("Licznik jazdy", 23, NAVY, true);
+        TextView title = text("Licznik jazdy", 21, NAVY, true);
+        title.setSingleLine(true);
         titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
-        statusText = text("Android • GPS gotowy", 14, MUTED, false);
+        statusText = text("GPS gotowy", 13, MUTED, false);
+        statusText.setSingleLine(true);
         titleBox.addView(statusText, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        clockPill = pill("00:00:00", BLUE, Color.WHITE, 17, true);
+        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 17, true);
         clockPill.setElevation(dp(4));
-        header.addView(clockPill, new LinearLayout.LayoutParams(dp(108), dp(50)));
+        header.addView(clockPill, new LinearLayout.LayoutParams(dp(82), dp(50)));
 
         TextView settings = circleText("⚙", 50, Color.WHITE, NAVY, 23);
         settings.setElevation(dp(4));
@@ -230,14 +241,17 @@ public class MainActivity extends android.app.Activity {
 
     private void buildControls() {
         controlsRow.removeAllViews();
-        controlsRow.addView(actionBtn("▶", "Start", GREEN, v -> startRide()), controlLp());
-        controlsRow.addView(actionBtn("Ⅱ", "Pauza", BLUE, v -> togglePause()), controlLp());
-        controlsRow.addView(actionBtn("■", "Stop", RED, v -> stopRide()), controlLp());
-        controlsRow.addView(actionBtn("↻", "Reset", Color.rgb(100, 116, 139), v -> resetLocalView()), controlLp());
+        primaryActionButton = actionBtn("▶", "Start", GREEN, v -> primaryRideAction());
+        primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
+        primaryActionLabel = (TextView) primaryActionButton.getChildAt(1);
+        controlsRow.addView(primaryActionButton, controlLp(1.55f));
+        controlsRow.addView(actionBtn("■", "Stop", RED, v -> stopRide()), controlLp(1.0f));
+        controlsRow.addView(actionBtn("↻", "Reset", Color.rgb(100, 116, 139), v -> resetRide()), controlLp(1.0f));
+        updateControlStates();
     }
 
-    private LinearLayout.LayoutParams controlLp() {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+    private LinearLayout.LayoutParams controlLp(float weight) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, weight);
         lp.setMargins(dp(5), 0, dp(5), 0);
         return lp;
     }
@@ -319,7 +333,7 @@ public class MainActivity extends android.app.Activity {
         distanceText = addStat(stats, "⌁", "Dystans", "0.00\nkm", BLUE);
         timeText = addStat(stats, "◴", "Czas", "00:00:00\njazdy", ORANGE);
         maxText = addStat(stats, "▲", "Maks.", "0.0\nkm/h", PURPLE);
-        pointsText = addStat(stats, "⊙", "Punkty", "0\nGPS", BLUE);
+
 
         LinearLayout mapCard = card();
         mapCard.setPadding(dp(14), dp(9), dp(14), dp(14));
@@ -386,6 +400,11 @@ public class MainActivity extends android.app.Activity {
         Toast.makeText(this, "Pomiar uruchomiony. Powiadomienie utrzyma GPS po blokadzie ekranu.", Toast.LENGTH_LONG).show();
     }
 
+    private void primaryRideAction() {
+        if (!running) startRide();
+        else togglePause();
+    }
+
     private void togglePause() {
         Intent i = new Intent(this, RideTrackingService.class);
         i.setAction(paused ? RideTrackingService.ACTION_RESUME : RideTrackingService.ACTION_PAUSE);
@@ -399,17 +418,24 @@ public class MainActivity extends android.app.Activity {
         Toast.makeText(this, "Jazda zakończona i zapisana w historii.", Toast.LENGTH_SHORT).show();
     }
 
-    private void resetLocalView() {
-        if (running) { Toast.makeText(this, "Najpierw zatrzymaj jazdę.", Toast.LENGTH_SHORT).show(); return; }
+    private void resetRide() {
+        Intent i = new Intent(this, RideTrackingService.class);
+        i.setAction(RideTrackingService.ACTION_RESET);
+        try { startService(i); } catch (Exception ignored) {}
+        resetLocalViewOnly();
+        Toast.makeText(this, running ? "Pomiar wyzerowany, jazda trwa dalej." : "Licznik wyzerowany.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void resetLocalViewOnly() {
         if (gaugeView != null) gaugeView.setSpeed(0);
         if (avgText != null) avgText.setText("0.000 km/h");
         if (distanceText != null) distanceText.setText("0.00\nkm");
         if (timeText != null) timeText.setText("00:00:00\njazdy");
         if (maxText != null) maxText.setText("0.0\nkm/h");
-        if (pointsText != null) pointsText.setText("0\nGPS");
         if (routeView != null) routeView.clear();
-        if (clockPill != null) clockPill.setText("00:00:00");
         lastElapsedMs = 0;
+        elapsedBaseMs = 0;
+        elapsedSyncRealtime = SystemClock.elapsedRealtime();
     }
 
     private boolean requestPermissionsIfNeeded(boolean showInfo) {
@@ -432,9 +458,9 @@ public class MainActivity extends android.app.Activity {
 
     private void updateStatus() {
         if (statusText == null) return;
-        if (running && !paused) statusText.setText("Android • GPS aktywny w tle");
-        else if (running) statusText.setText("Android • pomiar wstrzymany");
-        else statusText.setText("Android • GPS gotowy");
+        if (running && !paused) statusText.setText("GPS aktywny");
+        else if (running) statusText.setText("Pomiar wstrzymany");
+        else statusText.setText("GPS gotowy");
     }
 
     private void renderHistory() {
@@ -631,6 +657,31 @@ public class MainActivity extends android.app.Activity {
     private void openUrl(String url) {
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
         catch (Exception e) { Toast.makeText(this, "Nie można otworzyć linku.", Toast.LENGTH_SHORT).show(); }
+    }
+
+    private void updateHeaderClock() {
+        if (clockPill != null) clockPill.setText(currentClockText());
+    }
+
+    private String currentClockText() {
+        return new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+    }
+
+    private void updateControlStates() {
+        if (primaryActionButton == null || primaryActionIcon == null || primaryActionLabel == null) return;
+        if (!running) {
+            primaryActionIcon.setText("▶");
+            primaryActionLabel.setText("Start");
+            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 20));
+        } else if (paused) {
+            primaryActionIcon.setText("▶");
+            primaryActionLabel.setText("Wznów");
+            primaryActionButton.setBackground(gradient(BLUE, darker(BLUE), 20));
+        } else {
+            primaryActionIcon.setText("Ⅱ");
+            primaryActionLabel.setText("Pauza");
+            primaryActionButton.setBackground(gradient(BLUE, darker(BLUE), 20));
+        }
     }
 
     private void updateNav() {

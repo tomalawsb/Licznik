@@ -34,6 +34,7 @@ public class RideTrackingService extends Service implements LocationListener {
     public static final String ACTION_PAUSE = "pl.tomalawsb.licznik.PAUSE";
     public static final String ACTION_RESUME = "pl.tomalawsb.licznik.RESUME";
     public static final String ACTION_SNAPSHOT = "pl.tomalawsb.licznik.SNAPSHOT";
+    public static final String ACTION_RESET = "pl.tomalawsb.licznik.RESET";
     public static final String ACTION_UPDATE = "pl.tomalawsb.licznik.UPDATE";
 
     private static final String CHANNEL_ID = "ride_tracking";
@@ -87,6 +88,7 @@ public class RideTrackingService extends Service implements LocationListener {
         else if (ACTION_STOP.equals(action)) stopRide();
         else if (ACTION_PAUSE.equals(action)) pauseRide();
         else if (ACTION_RESUME.equals(action)) resumeRide();
+        else if (ACTION_RESET.equals(action)) resetRide();
         else if (ACTION_SNAPSHOT.equals(action)) sendUpdate();
         return START_STICKY;
     }
@@ -95,16 +97,7 @@ public class RideTrackingService extends Service implements LocationListener {
         if (requestedMode != null) mode = requestedMode;
         running = true;
         paused = false;
-        startElapsed = SystemClock.elapsedRealtime();
-        elapsedBeforePause = 0;
-        distanceMeters = 0;
-        currentSpeedKmh = 0;
-        targetSpeedKmh = 0;
-        maxSpeedKmh = 0;
-        lastNotificationUpdate = 0;
-        lastAccuracy = -1;
-        lastLocation = null;
-        while (points.length() > 0) points.remove(0);
+        clearRideData();
         startAsForeground();
         requestLocation();
         tickHandler.removeCallbacks(tickRunnable);
@@ -140,13 +133,44 @@ public class RideTrackingService extends Service implements LocationListener {
         if (running) saveHistory();
         running = false;
         paused = false;
-        targetSpeedKmh = 0;
-        currentSpeedKmh = 0;
         tickHandler.removeCallbacks(tickRunnable);
         removeLocationUpdates();
+        clearRideData();
         sendUpdate();
         stopForeground(true);
         stopSelf();
+    }
+
+    private void resetRide() {
+        boolean wasRunning = running;
+        boolean wasPaused = paused;
+        clearRideData();
+        running = wasRunning;
+        paused = wasPaused;
+        if (running) {
+            startElapsed = SystemClock.elapsedRealtime();
+            if (!paused) {
+                requestLocation();
+                tickHandler.removeCallbacks(tickRunnable);
+                tickHandler.post(tickRunnable);
+            }
+            updateNotification();
+        }
+        sendUpdate();
+        if (!running) stopSelf();
+    }
+
+    private void clearRideData() {
+        startElapsed = SystemClock.elapsedRealtime();
+        elapsedBeforePause = 0;
+        distanceMeters = 0;
+        currentSpeedKmh = 0;
+        targetSpeedKmh = 0;
+        maxSpeedKmh = 0;
+        lastNotificationUpdate = 0;
+        lastAccuracy = -1;
+        lastLocation = null;
+        while (points.length() > 0) points.remove(0);
     }
 
     private void startAsForeground() {
@@ -207,15 +231,30 @@ public class RideTrackingService extends Service implements LocationListener {
         if (loc.hasAccuracy()) lastAccuracy = loc.getAccuracy();
         if (loc.hasAccuracy() && loc.getAccuracy() > 80) { sendUpdate(); return; }
 
+        double maxAllowed = "Samochód".equals(mode) ? 260.0 : 90.0;
         double speedKmh = loc.hasSpeed() ? loc.getSpeed() * 3.6 : 0;
+        if (speedKmh > maxAllowed) speedKmh = 0;
+
         if (lastLocation != null) {
             float meters = lastLocation.distanceTo(loc);
-            long dt = Math.max(1, loc.getTime() - lastLocation.getTime());
-            double computedSpeed = (meters / (dt / 1000.0)) * 3.6;
+            long dtMs = loc.getTime() - lastLocation.getTime();
+            if (dtMs < 800) {
+                sendUpdate();
+                return;
+            }
+            double computedSpeed = (meters / (dtMs / 1000.0)) * 3.6;
+
+            if (computedSpeed > maxAllowed || meters > 250) {
+                lastLocation = loc;
+                sendUpdate();
+                return;
+            }
+
             if (speedKmh <= 0) speedKmh = computedSpeed;
-            if (meters >= 1.5 && computedSpeed < 180) distanceMeters += meters;
+            if (meters >= 1.5) distanceMeters += meters;
         }
-        targetSpeedKmh = Math.max(0, speedKmh);
+
+        targetSpeedKmh = Math.max(0, Math.min(speedKmh, maxAllowed));
         maxSpeedKmh = Math.max(maxSpeedKmh, targetSpeedKmh);
         lastLocation = loc;
         addPoint(loc);

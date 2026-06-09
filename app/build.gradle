@@ -8,8 +8,8 @@ android {
         applicationId 'pl.tomalawsb.licznik'
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName '1.5 - 0906260852'
+        versionCode 6
+        versionName '1.6 - 0906260918'
     }
 
     signingConfigs {
