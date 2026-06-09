@@ -18,6 +18,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -45,15 +47,38 @@ public class RideTrackingService extends Service implements LocationListener {
     private long elapsedBeforePause = 0;
     private double distanceMeters = 0;
     private double currentSpeedKmh = 0;
+    private double targetSpeedKmh = 0;
     private double maxSpeedKmh = 0;
     private float lastAccuracy = -1;
     private Location lastLocation;
+    private long lastNotificationUpdate = 0;
+    private final Handler tickHandler = new Handler(Looper.getMainLooper());
+    private final Runnable tickRunnable = new Runnable() {
+        @Override public void run() {
+            if (running && !paused) {
+                currentSpeedKmh += (targetSpeedKmh - currentSpeedKmh) * 0.22;
+                if (Math.abs(currentSpeedKmh) < 0.05 && targetSpeedKmh < 0.05) currentSpeedKmh = 0;
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastNotificationUpdate >= 1000) {
+                    updateNotification();
+                    lastNotificationUpdate = now;
+                }
+                sendUpdate();
+                tickHandler.postDelayed(this, 250);
+            }
+        }
+    };
     private final JSONArray points = new JSONArray();
 
     @Override public void onCreate() {
         super.onCreate();
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         createChannel();
+    }
+
+    @Override public void onDestroy() {
+        tickHandler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -74,12 +99,16 @@ public class RideTrackingService extends Service implements LocationListener {
         elapsedBeforePause = 0;
         distanceMeters = 0;
         currentSpeedKmh = 0;
+        targetSpeedKmh = 0;
         maxSpeedKmh = 0;
+        lastNotificationUpdate = 0;
         lastAccuracy = -1;
         lastLocation = null;
         while (points.length() > 0) points.remove(0);
         startAsForeground();
         requestLocation();
+        tickHandler.removeCallbacks(tickRunnable);
+        tickHandler.post(tickRunnable);
         sendUpdate();
     }
 
@@ -87,7 +116,9 @@ public class RideTrackingService extends Service implements LocationListener {
         if (!running || paused) return;
         elapsedBeforePause += SystemClock.elapsedRealtime() - startElapsed;
         paused = true;
+        targetSpeedKmh = 0;
         currentSpeedKmh = 0;
+        tickHandler.removeCallbacks(tickRunnable);
         removeLocationUpdates();
         updateNotification();
         sendUpdate();
@@ -99,6 +130,8 @@ public class RideTrackingService extends Service implements LocationListener {
         startElapsed = SystemClock.elapsedRealtime();
         lastLocation = null;
         requestLocation();
+        tickHandler.removeCallbacks(tickRunnable);
+        tickHandler.post(tickRunnable);
         updateNotification();
         sendUpdate();
     }
@@ -107,6 +140,9 @@ public class RideTrackingService extends Service implements LocationListener {
         if (running) saveHistory();
         running = false;
         paused = false;
+        targetSpeedKmh = 0;
+        currentSpeedKmh = 0;
+        tickHandler.removeCallbacks(tickRunnable);
         removeLocationUpdates();
         sendUpdate();
         stopForeground(true);
@@ -155,10 +191,10 @@ public class RideTrackingService extends Service implements LocationListener {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, this);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
         } catch (Exception ignored) {}
         try {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000, 2, this);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1500, 1, this);
         } catch (Exception ignored) {}
     }
 
@@ -179,11 +215,10 @@ public class RideTrackingService extends Service implements LocationListener {
             if (speedKmh <= 0) speedKmh = computedSpeed;
             if (meters >= 1.5 && computedSpeed < 180) distanceMeters += meters;
         }
-        currentSpeedKmh = Math.max(0, speedKmh);
-        maxSpeedKmh = Math.max(maxSpeedKmh, currentSpeedKmh);
+        targetSpeedKmh = Math.max(0, speedKmh);
+        maxSpeedKmh = Math.max(maxSpeedKmh, targetSpeedKmh);
         lastLocation = loc;
         addPoint(loc);
-        updateNotification();
         sendUpdate();
     }
 

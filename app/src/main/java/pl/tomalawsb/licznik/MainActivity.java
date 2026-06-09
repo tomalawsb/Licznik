@@ -14,6 +14,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.View;
 import android.view.Window;
 import android.widget.CheckBox;
@@ -21,6 +23,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,7 +36,7 @@ import java.net.URL;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.4 - 0906260834";
+    public static final String VERSION_NAME = "1.5 - 0906260852";
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -59,6 +63,19 @@ public class MainActivity extends android.app.Activity {
     private boolean running = false;
     private boolean paused = false;
     private int currentTab = 0;
+    private long lastElapsedMs = 0;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    private final Runnable clockUiTicker = new Runnable() {
+        @Override public void run() {
+            if (running && !paused) {
+                String t = formatDuration(lastElapsedMs);
+                if (clockPill != null) clockPill.setText(t);
+                if (timeText != null) timeText.setText(t + "\njazdy");
+            }
+            uiHandler.postDelayed(this, 250);
+        }
+    };
 
     private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -72,6 +89,7 @@ public class MainActivity extends android.app.Activity {
             double distanceKm = intent.getDoubleExtra("distanceKm", 0);
             double max = intent.getDoubleExtra("max", 0);
             long elapsed = intent.getLongExtra("elapsed", 0);
+            lastElapsedMs = elapsed;
             int points = intent.getIntExtra("points", 0);
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
@@ -94,20 +112,44 @@ public class MainActivity extends android.app.Activity {
         super.onCreate(savedInstanceState);
         Window w = getWindow();
         w.setStatusBarColor(BG);
-        w.setNavigationBarColor(Color.WHITE);
-        if (Build.VERSION.SDK_INT >= 23) {
-            w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-        }
+        w.setNavigationBarColor(BG);
         selectedMode = prefs().getString("last_mode", "Rower");
         buildUi();
+        enterImmersiveMode();
         registerUpdates();
         requestPermissionsIfNeeded(false);
         renderRide();
+        uiHandler.post(clockUiTicker);
         if (prefs().getBoolean("auto_update_check", false)) checkForUpdates(false);
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) enterImmersiveMode();
+    }
+
+    private void enterImmersiveMode() {
+        Window w = getWindow();
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = w.getInsetsController();
+            if (c != null) {
+                c.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            w.getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
     }
 
     @Override protected void onDestroy() {
         try { unregisterReceiver(updateReceiver); } catch (Exception ignored) {}
+        uiHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
@@ -128,10 +170,10 @@ public class MainActivity extends android.app.Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(18), dp(10), dp(18), dp(8));
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(82)));
+        header.setPadding(dp(18), dp(10), dp(18), dp(6));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(78)));
 
-        TextView bikeIcon = circleText("🚲", 48, Color.WHITE, GREEN_DARK, 22);
+        TextView bikeIcon = circleText("🚲", 46, Color.WHITE, GREEN_DARK, 21);
         bikeIcon.setElevation(dp(4));
         header.addView(bikeIcon);
 
@@ -140,19 +182,19 @@ public class MainActivity extends android.app.Activity {
         titleBox.setPadding(dp(12), 0, 0, 0);
         header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
 
-        TextView title = text("Licznik jazdy", 25, NAVY, true);
+        TextView title = text("Licznik jazdy", 23, NAVY, true);
         titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
-        statusText = text("Android • GPS gotowy", 15, MUTED, false);
+        statusText = text("Android • GPS gotowy", 14, MUTED, false);
         titleBox.addView(statusText, new LinearLayout.LayoutParams(-1, 0, 1));
 
         clockPill = pill("00:00:00", BLUE, Color.WHITE, 17, true);
         clockPill.setElevation(dp(4));
-        header.addView(clockPill, new LinearLayout.LayoutParams(dp(104), dp(52)));
+        header.addView(clockPill, new LinearLayout.LayoutParams(dp(108), dp(50)));
 
-        TextView settings = circleText("⚙", 52, Color.WHITE, NAVY, 24);
+        TextView settings = circleText("⚙", 50, Color.WHITE, NAVY, 23);
         settings.setElevation(dp(4));
         settings.setOnClickListener(v -> showSettings());
-        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(58), dp(58));
+        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(54), dp(54));
         setLp.leftMargin = dp(10);
         header.addView(settings, setLp);
 
@@ -167,14 +209,14 @@ public class MainActivity extends android.app.Activity {
         controlsRow.setGravity(Gravity.CENTER);
         controlsRow.setPadding(dp(14), dp(8), dp(14), dp(8));
         controlsRow.setBackgroundColor(Color.WHITE);
-        root.addView(controlsRow, new LinearLayout.LayoutParams(-1, dp(78)));
+        root.addView(controlsRow, new LinearLayout.LayoutParams(-1, dp(82)));
         buildControls();
 
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(dp(10), dp(4), dp(10), dp(6));
         nav.setBackgroundColor(Color.WHITE);
-        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(70)));
+        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(66)));
         navRide = navItem("🚲\nJazda", true);
         navHistory = navItem("☰\nHistoria", false);
         navStats = navItem("▥\nStatystyki", false);
@@ -200,15 +242,24 @@ public class MainActivity extends android.app.Activity {
         return lp;
     }
 
-    private TextView actionBtn(String icon, String label, int color, View.OnClickListener listener) {
-        TextView t = text(icon + "\n" + label, 13, Color.WHITE, true);
-        t.setGravity(Gravity.CENTER);
-        t.setBackground(round(color, 18, color, 0));
-        t.setElevation(dp(3));
-        t.setOnClickListener(listener);
-        return t;
+    private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(4), dp(6), dp(4), dp(5));
+        b.setBackground(gradient(color, darker(color), 20));
+        b.setElevation(dp(6));
+        b.setOnClickListener(listener);
+        TextView i = text(icon, 20, Color.WHITE, true);
+        i.setGravity(Gravity.CENTER);
+        i.setIncludeFontPadding(false);
+        b.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView l = text(label, 13, Color.WHITE, true);
+        l.setGravity(Gravity.CENTER);
+        l.setIncludeFontPadding(false);
+        b.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
+        return b;
     }
-
     private void renderRide() {
         currentTab = 0;
         updateNav();
@@ -233,12 +284,12 @@ public class MainActivity extends android.app.Activity {
         seg.addView(modeSamochod, new LinearLayout.LayoutParams(0, -1, 1));
         modeRower.setOnClickListener(v -> setMode("Rower"));
         modeSamochod.setOnClickListener(v -> setMode("Samochód"));
-        contentBox.addView(modeCard, new LinearLayout.LayoutParams(-1, dp(112)));
+        contentBox.addView(modeCard, new LinearLayout.LayoutParams(-1, dp(108)));
 
         LinearLayout speedCard = card();
         speedCard.setPadding(dp(12), dp(4), dp(12), dp(12));
         gaugeView = new SpeedGaugeView(this);
-        speedCard.addView(gaugeView, new LinearLayout.LayoutParams(-1, dp(210)));
+        speedCard.addView(gaugeView, new LinearLayout.LayoutParams(-1, dp(196)));
 
         LinearLayout avg = new LinearLayout(this);
         avg.setOrientation(LinearLayout.HORIZONTAL);
@@ -256,13 +307,13 @@ public class MainActivity extends android.app.Activity {
         avg.addView(avgTexts, new LinearLayout.LayoutParams(0, -1, 1));
         LinearLayout.LayoutParams avgLp = new LinearLayout.LayoutParams(-1, dp(78));
         speedCard.addView(avg, avgLp);
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-1, dp(318));
+        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-1, dp(304));
         speedLp.topMargin = dp(12);
         contentBox.addView(speedCard, speedLp);
 
         LinearLayout stats = new LinearLayout(this);
         stats.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(-1, dp(96));
+        LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(-1, dp(88));
         statsLp.topMargin = dp(12);
         contentBox.addView(stats, statsLp);
         distanceText = addStat(stats, "⌁", "Dystans", "0.00\nkm", BLUE);
@@ -280,8 +331,8 @@ public class MainActivity extends android.app.Activity {
         mapHeader.addView(accuracyText);
         mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(32)));
         routeView = new RouteView(this);
-        mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(142)));
-        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(202));
+        mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(132)));
+        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(190));
         mapLp.topMargin = dp(12);
         contentBox.addView(mapCard, mapLp);
         updateModeButtons();
@@ -296,9 +347,9 @@ public class MainActivity extends android.app.Activity {
         box.setPadding(dp(4), dp(5), dp(4), dp(5));
         box.setBackground(round(Color.WHITE, 21, BORDER, 1));
         box.setElevation(dp(3));
-        TextView i = text(icon, 17, color, true); i.setGravity(Gravity.CENTER); box.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView l = text(label, 12, Color.rgb(51,65,85), true); l.setGravity(Gravity.CENTER); box.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView v = text(value, 17, color, true); v.setGravity(Gravity.CENTER); box.addView(v, new LinearLayout.LayoutParams(-1, 0, 2));
+        TextView i = text(icon, 15, color, true); i.setGravity(Gravity.CENTER); box.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView l = text(label, 11, Color.rgb(51,65,85), true); l.setGravity(Gravity.CENTER); box.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView v = text(value, 14, color, true); v.setGravity(Gravity.CENTER); box.addView(v, new LinearLayout.LayoutParams(-1, 0, 2));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1); lp.setMargins(dp(4),0,dp(4),0);
         parent.addView(box, lp);
         return v;
@@ -358,6 +409,7 @@ public class MainActivity extends android.app.Activity {
         if (pointsText != null) pointsText.setText("0\nGPS");
         if (routeView != null) routeView.clear();
         if (clockPill != null) clockPill.setText("00:00:00");
+        lastElapsedMs = 0;
     }
 
     private boolean requestPermissionsIfNeeded(boolean showInfo) {
@@ -611,6 +663,7 @@ public class MainActivity extends android.app.Activity {
         t.setTextSize(sp);
         t.setTextColor(color);
         t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setIncludeFontPadding(false);
         if (bold) t.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         return t;
     }
@@ -628,6 +681,21 @@ public class MainActivity extends android.app.Activity {
         t.setBackground(round(bg, sizeDp / 2, Color.TRANSPARENT, 0));
         t.setLayoutParams(new LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
         return t;
+    }
+
+    private android.graphics.drawable.GradientDrawable gradient(int startColor, int endColor, int radius) {
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{startColor, endColor});
+        g.setCornerRadius(dp(radius));
+        return g;
+    }
+
+    private int darker(int color) {
+        int r = Math.max(0, (int)(Color.red(color) * 0.86));
+        int g = Math.max(0, (int)(Color.green(color) * 0.86));
+        int b = Math.max(0, (int)(Color.blue(color) * 0.86));
+        return Color.rgb(r, g, b);
     }
 
     private android.graphics.drawable.GradientDrawable round(int color, int radius, int strokeColor, int stroke) {

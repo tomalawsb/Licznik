@@ -1,6 +1,6 @@
 # Licznik jazdy Android
 
-Wersja: **1.4 - 0906260834**
+Wersja: **1.5 - 0906260852**
 
 To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej prędkości i historii jazdy.
 
@@ -16,7 +16,9 @@ To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej 
 - statystyki,
 - pomiar GPS jako Foreground Service z powiadomieniem,
 - ustawienia aplikacji,
-- sprawdzanie aktualizacji z GitHub Releases.
+- sprawdzanie aktualizacji z GitHub Releases,
+- tryb pełnoekranowy ukrywający paski systemowe Androida,
+- płynniejsze odświeżanie czasu i licznika jazdy niezależnie od częstotliwości punktów GPS.
 
 ## Działanie po zablokowaniu telefonu
 
@@ -47,7 +49,7 @@ app-release.apk
 oraz publikuje go jako GitHub Release:
 
 ```text
-Licznik-v1.4-0906260834.apk
+Licznik-v1.5-0906260852.apk
 ```
 
 ## Aktualizacje aplikacji
