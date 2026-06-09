@@ -70,6 +70,18 @@ Ta paczka zawiera stały klucz podpisu `licznik-release.jks`, żeby kolejne wers
 Dla prywatnego projektu testowego to jest wygodne. Dla publicznej dystrybucji klucz podpisu powinien być trzymany poza repozytorium, najlepiej w GitHub Secrets albo w Google Play App Signing.
 
 
+
+## Poprawka builda 0906261003
+
+Dodano `gradle.properties` z ustawieniami AndroidX:
+
+```properties
+android.useAndroidX=true
+android.enableJetifier=true
+```
+
+Poprawia to błąd GitHub Actions związany z zależnościami AndroidX/Google Play Services przy budowaniu `assembleRelease`.
+
 ## Zmiany 1.8 - 0906260938
 - Zmieniono silnik lokalizacji na Fused Location Provider.
 - Dodano stabilizację postoju bez blokowania realnej jazdy.

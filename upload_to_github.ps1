@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $RepoUrl = "https://github.com/tomalawsb/Licznik.git"
 $GitUserName = "Tomasz Wolak"
 $GitUserEmail = "wolak82@gmail.com"
-$DefaultCommitMessage = "Licznik Android v1.7 - 0906260920"
+$DefaultCommitMessage = "Licznik Android v1.8 - 0906260938 build fix"
 
 function Stop-WithMessage($Message) {
     Write-Host ""
