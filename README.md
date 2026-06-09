@@ -1,47 +1,89 @@
-# Licznik jazdy PWA
+# Licznik jazdy Android
 
-Wersja: **1.1 - 0906260752**
+Wersja: **1.3 - 0906260810**
 
-Pierwsza praktyczna wersja PWA licznika jazdy na telefon.
+To jest natywna wersja Android, a nie zwykła PWA. Została przygotowana po to, żeby pomiar jazdy mógł działać po zablokowaniu telefonu.
 
-## Funkcje
+## Co robi aplikacja
 
-- tryb ręczny: Rower / Samochód,
-- aktualna prędkość GPS,
-- średnia prędkość z dokładnością do 3 miejsc po przecinku,
+- ręczny tryb jazdy: **Rower / Samochód**,
+- aktualna prędkość,
+- średnia prędkość z trzema miejscami po przecinku,
 - dystans,
 - czas jazdy,
 - prędkość maksymalna,
-- liczba punktów GPS,
-- lokalny podgląd trasy,
-- historia przejazdów,
+- punkty GPS,
+- podgląd trasy,
+- historia zakończonych jazd,
 - statystyki,
-- opcje z numerem wersji,
-- opcja „Nie wygaszaj ekranu”.
+- stałe powiadomienie podczas jazdy,
+- pomiar GPS w `Foreground Service` z typem `location`.
 
-## Zmiany w wersji 1.1
+## Ważne
 
-- zmniejszony i zagęszczony ekran jazdy,
-- poprawiony licznik prędkości,
-- przyciski Start / Pauza / Stop / Reset są stale widoczne nad dolnym menu,
-- poprawione odstępy na telefonie,
-- doprecyzowany opis działania po zablokowaniu telefonu.
+Pomiar po zablokowaniu telefonu działa przez natywną usługę Android:
 
-## Ważne ograniczenie
+```xml
+<service
+    android:name=".RideTrackingService"
+    android:exported="false"
+    android:foregroundServiceType="location" />
+```
 
-Ta paczka jest PWA uruchamianą przez przeglądarkę / GitHub Pages.
-Opcja „Nie wygaszaj ekranu” może utrzymywać aktywny ekran, ale nie daje pewnego działania po zablokowaniu telefonu.
-Pełne działanie po blokadzie ekranu wymaga wersji Android APK z usługą działającą w tle.
+Aplikacja prosi o:
+
+- dokładną lokalizację,
+- powiadomienia,
+- usługę pierwszoplanową lokalizacji.
+
+Dla najlepszej stabilności warto w ustawieniach Androida wyłączyć oszczędzanie baterii dla tej aplikacji.
+
+## Jak zbudować APK lokalnie
+
+1. Otwórz folder projektu w Android Studio.
+2. Poczekaj, aż Gradle zsynchronizuje projekt.
+3. Wybierz: **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+4. APK będzie w:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Jak zbudować APK przez GitHub
+
+W paczce jest workflow:
+
+```text
+.github/workflows/android-build.yml
+```
+
+Po wysłaniu na GitHub wejdź w repozytorium:
+
+```text
+Actions > Build Android APK
+```
+
+Po zakończeniu budowania pobierz artifact:
+
+```text
+Licznik-debug-apk
+```
+
+W środku będzie plik:
+
+```text
+app-debug.apk
+```
 
 ## Wysyłka na GitHub
 
-Uruchom PowerShell w folderze projektu:
+Uruchom PowerShell w głównym folderze projektu:
 
 ```powershell
 .\upload_to_github.ps1
 ```
 
-Repozytorium ustawione w skrypcie:
+Skrypt wysyła projekt do:
 
 ```text
 https://github.com/tomalawsb/Licznik.git
