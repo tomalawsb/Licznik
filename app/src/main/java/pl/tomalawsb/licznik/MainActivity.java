@@ -3,30 +3,32 @@ package pl.tomalawsb.licznik;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.BroadcastReceiver;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.widget.CheckBox;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.SystemClock;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,33 +42,33 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "2.2 - 0906261554";
-    public static final String CURRENT_RELEASE_TAG = "v2.2-0906261554";
-    public static final int CURRENT_VERSION_CODE = 22;
-    private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
+    public static final String VERSION_NAME = "2.4 - 0906261645";
+    public static final String CURRENT_RELEASE_TAG = "v2.4-0906261645";
+    public static final int CURRENT_VERSION_CODE = 24;
+
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
 
-    private final int GREEN = Color.rgb(34, 197, 94);
-    private final int GREEN_DARK = Color.rgb(22, 163, 74);
-    private final int BLUE = Color.rgb(37, 99, 235);
-    private final int ORANGE = Color.rgb(234, 88, 12);
-    private final int PURPLE = Color.rgb(99, 102, 241);
-    private final int RED = Color.rgb(239, 68, 68);
-    private final int NAVY = Color.rgb(8, 24, 64);
-    private final int MUTED = Color.rgb(100, 116, 139);
-    private final int BORDER = Color.rgb(221, 228, 238);
-    private final int BG = Color.rgb(248, 251, 255);
+    private final int GREEN = Color.rgb(16, 163, 99);
+    private final int GREEN_LIGHT = Color.rgb(235, 247, 226);
+    private final int GREEN_DARK = Color.rgb(5, 132, 83);
+    private final int BLUE = Color.rgb(32, 112, 210);
+    private final int RED = Color.rgb(220, 55, 55);
+    private final int NAVY = Color.rgb(28, 31, 40);
+    private final int TEXT = Color.rgb(45, 47, 52);
+    private final int MUTED = Color.rgb(125, 125, 125);
+    private final int BORDER = Color.rgb(222, 218, 210);
+    private final int BG = Color.rgb(250, 248, 243);
+    private final int CARD_BG = Color.rgb(255, 254, 250);
 
     private LinearLayout contentBox;
-    private LinearLayout controlsRow;
-    private LinearLayout primaryActionButton;
+    private TextView statusText;
+    private TextView navRide, navHistory, navProgress, navProfile;
+    private TextView speedValueText, speedSummaryText, distanceText, timeText, elevationText, caloriesText, paceText;
     private TextView primaryActionIcon, primaryActionLabel;
-    private TextView clockPill, statusText, modeRower, modeSamochod;
-    private SpeedGaugeView gaugeView;
+    private LinearLayout primaryActionButton;
     private RouteMapView routeView;
-    private TextView avgText, distanceText, timeText, maxText, accuracyText;
-    private TextView navRide, navHistory, navStats;
+
     private String selectedMode = "Rower";
     private boolean running = false;
     private boolean paused = false;
@@ -75,16 +77,16 @@ public class MainActivity extends android.app.Activity {
     private long elapsedBaseMs = 0;
     private long elapsedSyncRealtime = 0;
     private String lastPointsJson = "[]";
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable clockUiTicker = new Runnable() {
         @Override public void run() {
-            updateHeaderClock();
             long displayElapsed = lastElapsedMs;
             if (running && !paused) {
                 displayElapsed = elapsedBaseMs + Math.max(0, SystemClock.elapsedRealtime() - elapsedSyncRealtime);
             }
-            if (timeText != null) timeText.setText(formatDuration(displayElapsed) + "\njazdy");
+            if (timeText != null) timeText.setText(formatDuration(displayElapsed) + "\nczas jazdy");
             uiHandler.postDelayed(this, 250);
         }
     };
@@ -92,33 +94,35 @@ public class MainActivity extends android.app.Activity {
     private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (!RideTrackingService.ACTION_UPDATE.equals(intent.getAction())) return;
+
             running = intent.getBooleanExtra("running", false);
             paused = intent.getBooleanExtra("paused", false);
             String incomingMode = intent.getStringExtra("mode");
             if (incomingMode != null) selectedMode = incomingMode;
+
             double speed = intent.getDoubleExtra("speed", 0);
             double avg = intent.getDoubleExtra("avg", 0);
             double distanceKm = intent.getDoubleExtra("distanceKm", 0);
             double max = intent.getDoubleExtra("max", 0);
             long elapsed = intent.getLongExtra("elapsed", 0);
-            lastElapsedMs = elapsed;
-            elapsedBaseMs = elapsed;
-            elapsedSyncRealtime = SystemClock.elapsedRealtime();
-            int points = intent.getIntExtra("points", 0);
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
             if (pointsJson != null) lastPointsJson = pointsJson;
 
-            if (gaugeView != null) gaugeView.setSpeed((float) speed);
-            if (avgText != null) avgText.setText(String.format(Locale.US, "%.3f km/h", avg));
-            if (distanceText != null) distanceText.setText(String.format(Locale.US, "%.2f\nkm", distanceKm));
-            if (timeText != null) timeText.setText(formatDuration(elapsed) + "\njazdy");
-            if (maxText != null) maxText.setText(String.format(Locale.US, "%.1f\nkm/h", max));
-            if (accuracyText != null) accuracyText.setText(accuracy > 0 ? "Dokładność: " + Math.round(accuracy) + " m" : "Dokładność: --");
-            if (pointsJson != null && routeView != null) routeView.setPointsFromJson(pointsJson);
-            updateModeButtons();
-            updateStatus();
-            updateControlStates();
+            lastElapsedMs = elapsed;
+            elapsedBaseMs = elapsed;
+            elapsedSyncRealtime = SystemClock.elapsedRealtime();
+
+            if (speedValueText != null) speedValueText.setText(String.format(Locale.US, "%.1f", speed));
+            if (speedSummaryText != null) speedSummaryText.setText(String.format(Locale.US, "Średnia: %.3f km/h  •  Maks: %.1f km/h", avg, max));
+            if (distanceText != null) distanceText.setText(String.format(Locale.US, "%.2f\nkm dystansu", distanceKm));
+            if (timeText != null) timeText.setText(formatDuration(elapsed) + "\nczas jazdy");
+            if (caloriesText != null) caloriesText.setText(formatCalories(distanceKm));
+            if (paceText != null) paceText.setText(formatPace(avg));
+            if (elevationText != null) elevationText.setText("--");
+            if (routeView != null && pointsJson != null) routeView.setPointsFromJson(pointsJson);
+            updateStatus(accuracy);
+            updatePrimaryButton();
         }
     };
 
@@ -184,34 +188,35 @@ public class MainActivity extends android.app.Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(16), dp(8), dp(16), dp(3));
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(68)));
+        header.setPadding(dp(18), dp(10), dp(18), dp(5));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(84)));
 
-        TextView bikeIcon = circleText("🚲", 42, Color.WHITE, GREEN_DARK, 19);
-        bikeIcon.setElevation(dp(4));
+        TextView bikeIcon = circleText("🚲", 46, Color.rgb(232, 247, 235), GREEN_DARK, 21);
+        bikeIcon.setElevation(dp(2));
+        bikeIcon.setOnClickListener(v -> chooseModeDialog());
         header.addView(bikeIcon);
 
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
-        titleBox.setPadding(dp(12), 0, 0, 0);
+        titleBox.setPadding(dp(14), 0, 0, 0);
         header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
 
-        TextView title = text("Licznik jazdy", 21, NAVY, true);
+        TextView greeting = text("Dzień dobry!", 13, MUTED, false);
+        titleBox.addView(greeting, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView title = text("Licznik jazdy", 22, NAVY, true);
         title.setSingleLine(true);
         titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
-        statusText = text("GPS gotowy", 13, MUTED, false);
-        statusText.setSingleLine(true);
-        titleBox.addView(statusText, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 14, true);
-        clockPill.setElevation(dp(2));
-        header.addView(clockPill, new LinearLayout.LayoutParams(dp(64), dp(34)));
+        TextView bell = circleText("🔔", 42, Color.WHITE, NAVY, 18);
+        bell.setElevation(dp(2));
+        bell.setOnClickListener(v -> Toast.makeText(this, "Powiadomienie GPS pojawia się po starcie jazdy.", Toast.LENGTH_SHORT).show());
+        header.addView(bell, new LinearLayout.LayoutParams(dp(42), dp(42)));
 
-        TextView settings = circleText("⚙", 40, Color.WHITE, NAVY, 20);
+        TextView settings = circleText("⚙", 42, Color.WHITE, NAVY, 21);
         settings.setElevation(dp(2));
         settings.setOnClickListener(v -> showSettings());
         LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(42), dp(42));
-        setLp.leftMargin = dp(8);
+        setLp.leftMargin = dp(10);
         header.addView(settings, setLp);
 
         contentBox = new LinearLayout(this);
@@ -221,201 +226,384 @@ public class MainActivity extends android.app.Activity {
         scroll.addView(contentBox);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        controlsRow = new LinearLayout(this);
-        controlsRow.setGravity(Gravity.CENTER);
-        controlsRow.setPadding(dp(14), dp(8), dp(14), dp(8));
-        controlsRow.setBackgroundColor(Color.WHITE);
-        root.addView(controlsRow, new LinearLayout.LayoutParams(-1, dp(76)));
-        buildControls();
-
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(10), dp(4), dp(10), dp(6));
-        nav.setBackgroundColor(Color.WHITE);
-        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(62)));
+        nav.setPadding(dp(10), dp(4), dp(10), dp(8));
+        nav.setBackground(round(Color.WHITE, 28, Color.TRANSPARENT, 0));
+        nav.setElevation(dp(4));
+        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(70)));
+
         navRide = navItem("🚲\nJazda", true);
-        navHistory = navItem("☰\nHistoria", false);
-        navStats = navItem("▥\nStatystyki", false);
+        navHistory = navItem("↺\nHistoria", false);
+        navProgress = navItem("⌁\nPostępy", false);
+        navProfile = navItem("♙\nProfil", false);
         nav.addView(navRide, new LinearLayout.LayoutParams(0, -1, 1));
         nav.addView(navHistory, new LinearLayout.LayoutParams(0, -1, 1));
-        nav.addView(navStats, new LinearLayout.LayoutParams(0, -1, 1));
+        nav.addView(navProgress, new LinearLayout.LayoutParams(0, -1, 1));
+        nav.addView(navProfile, new LinearLayout.LayoutParams(0, -1, 1));
         navRide.setOnClickListener(v -> renderRide());
         navHistory.setOnClickListener(v -> renderHistory());
-        navStats.setOnClickListener(v -> renderStats());
+        navProgress.setOnClickListener(v -> renderProgress());
+        navProfile.setOnClickListener(v -> renderProfile());
     }
 
-    private void buildControls() {
-        controlsRow.removeAllViews();
-        primaryActionButton = actionBtn("▶", "Start", GREEN, v -> primaryRideAction());
-        primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
-        primaryActionLabel = (TextView) primaryActionButton.getChildAt(1);
-        controlsRow.addView(primaryActionButton, controlLp(1.55f));
-        controlsRow.addView(secondaryActionBtn("■", "Stop", RED, v -> stopRide()), controlLp(0.90f));
-        controlsRow.addView(secondaryActionBtn("↻", "Reset", Color.rgb(71, 85, 105), v -> resetRide()), controlLp(0.90f));
-        updateControlStates();
-    }
-
-    private LinearLayout.LayoutParams controlLp(float weight) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, weight);
-        lp.setMargins(dp(5), 0, dp(5), 0);
-        return lp;
-    }
-
-    private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener) {
-        LinearLayout b = new LinearLayout(this);
-        b.setOrientation(LinearLayout.HORIZONTAL);
-        b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(10), 0, dp(10), 0);
-        b.setBackground(gradient(color, darker(color), 18));
-        b.setElevation(dp(5));
-        b.setOnClickListener(listener);
-        TextView i = text(icon, 20, Color.WHITE, true);
-        i.setGravity(Gravity.CENTER);
-        i.setIncludeFontPadding(false);
-        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(34), -1);
-        b.addView(i, ilp);
-        TextView l = text(label, 15, Color.WHITE, true);
-        l.setGravity(Gravity.CENTER_VERTICAL);
-        l.setIncludeFontPadding(false);
-        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
-        return b;
-    }
-
-    private LinearLayout secondaryActionBtn(String icon, String label, int color, View.OnClickListener listener) {
-        LinearLayout b = new LinearLayout(this);
-        b.setOrientation(LinearLayout.HORIZONTAL);
-        b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(7), 0, dp(7), 0);
-        b.setBackground(round(Color.WHITE, 18, BORDER, 1));
-        b.setElevation(dp(3));
-        b.setOnClickListener(listener);
-        TextView i = text(icon, 16, color, true);
-        i.setGravity(Gravity.CENTER);
-        i.setIncludeFontPadding(false);
-        b.addView(i, new LinearLayout.LayoutParams(dp(24), -1));
-        TextView l = text(label, 13, NAVY, true);
-        l.setGravity(Gravity.CENTER_VERTICAL);
-        l.setIncludeFontPadding(false);
-        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
-        return b;
-    }
     private void renderRide() {
         currentTab = 0;
         updateNav();
-        controlsRow.setVisibility(View.VISIBLE);
         contentBox.removeAllViews();
-        contentBox.setPadding(dp(16), 0, dp(16), dp(10));
+        contentBox.setPadding(dp(16), 0, dp(16), dp(14));
 
-        LinearLayout modeCard = card();
-        modeCard.setPadding(dp(14), dp(9), dp(14), dp(10));
-        TextView label = text("Tryb jazdy", 15, MUTED, true);
-        modeCard.addView(label, new LinearLayout.LayoutParams(-1, dp(24)));
-        LinearLayout seg = new LinearLayout(this);
-        seg.setGravity(Gravity.CENTER);
-        seg.setPadding(dp(5), dp(5), dp(5), dp(5));
-        seg.setBackground(round(Color.rgb(248,250,252), 22, Color.rgb(218,226,236), 1));
-        LinearLayout.LayoutParams segLp = new LinearLayout.LayoutParams(-1, dp(46));
-        segLp.topMargin = dp(6);
-        modeCard.addView(seg, segLp);
-        modeRower = modeButton("🚲  Rower");
-        modeSamochod = modeButton("🚗  Samochód");
-        seg.addView(modeRower, new LinearLayout.LayoutParams(0, -1, 1));
-        seg.addView(modeSamochod, new LinearLayout.LayoutParams(0, -1, 1));
-        modeRower.setOnClickListener(v -> setMode("Rower"));
-        modeSamochod.setOnClickListener(v -> setMode("Samochód"));
-        contentBox.addView(modeCard, new LinearLayout.LayoutParams(-1, dp(92)));
+        buildSpeedHero();
+        buildDistanceTimeRow();
+        buildGpsCard();
+        buildActionRow();
+        buildRecentRides();
 
-        LinearLayout speedCard = card();
-        speedCard.setPadding(dp(12), dp(2), dp(12), dp(12));
-        gaugeView = new SpeedGaugeView(this);
-        speedCard.addView(gaugeView, new LinearLayout.LayoutParams(-1, dp(178)));
-
-        LinearLayout avg = new LinearLayout(this);
-        avg.setOrientation(LinearLayout.HORIZONTAL);
-        avg.setGravity(Gravity.CENTER_VERTICAL);
-        avg.setPadding(dp(14), 0, dp(14), 0);
-        avg.setBackground(round(Color.rgb(246,254,249), 18, Color.rgb(187,247,208), 1));
-        TextView avgIcon = circleText("↗", 44, Color.WHITE, GREEN_DARK, 22);
-        avg.addView(avgIcon);
-        LinearLayout avgTexts = new LinearLayout(this);
-        avgTexts.setOrientation(LinearLayout.VERTICAL);
-        avgTexts.setPadding(dp(14),0,0,0);
-        avgTexts.addView(text("Średnia prędkość", 16, NAVY, true), new LinearLayout.LayoutParams(-1, 0, 1));
-        avgText = text("0.000 km/h", 23, GREEN_DARK, true);
-        avgTexts.addView(avgText, new LinearLayout.LayoutParams(-1, 0, 1));
-        avg.addView(avgTexts, new LinearLayout.LayoutParams(0, -1, 1));
-        LinearLayout.LayoutParams avgLp = new LinearLayout.LayoutParams(-1, dp(64));
-        speedCard.addView(avg, avgLp);
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-1, dp(258));
-        speedLp.topMargin = dp(12);
-        contentBox.addView(speedCard, speedLp);
-
-        LinearLayout stats = new LinearLayout(this);
-        stats.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(-1, dp(88));
-        statsLp.topMargin = dp(10);
-        contentBox.addView(stats, statsLp);
-        distanceText = addStat(stats, "⌁", "Dystans", "0.00\nkm", GREEN_DARK);
-        timeText = addStat(stats, "◴", "Czas", "00:00:00\njazdy", NAVY);
-        maxText = addStat(stats, "▲", "Maks.", "0.0\nkm/h", NAVY);
-
-
-        LinearLayout mapCard = card();
-        mapCard.setPadding(dp(14), dp(8), dp(14), dp(12));
-        LinearLayout mapHeader = new LinearLayout(this);
-        mapHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView mapTitle = text("Trasa GPS", 15, NAVY, true);
-        mapHeader.addView(mapTitle, new LinearLayout.LayoutParams(0, -1, 1));
-        accuracyText = text("Dokładność: --", 13, MUTED, false);
-        mapHeader.addView(accuracyText);
-        mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(28)));
-        routeView = new RouteMapView(this);
-        routeView.setOnClickListener(v -> showRouteMapDialog("Aktualna trasa", lastPointsJson,
-                String.format(Locale.US, "Dystans %s  •  czas %s", compactStatText(distanceText), formatDuration(lastElapsedMs))));
-        mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(104)));
-        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(152));
-        mapLp.topMargin = dp(12);
-        contentBox.addView(mapCard, mapLp);
-        updateModeButtons();
-        updateStatus();
+        updateStatus(-1);
+        updatePrimaryButton();
         requestSnapshot();
     }
 
-    private TextView addStat(LinearLayout parent, String icon, String label, String value, int color) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER);
-        box.setPadding(dp(4), dp(5), dp(4), dp(5));
-        box.setBackground(round(Color.WHITE, 18, BORDER, 1));
-        box.setElevation(dp(2));
-        TextView i = text(icon, 13, color, true); i.setGravity(Gravity.CENTER); box.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView l = text(label, 10, MUTED, true); l.setGravity(Gravity.CENTER); box.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView v = text(value, 14, color, true); v.setGravity(Gravity.CENTER); box.addView(v, new LinearLayout.LayoutParams(-1, 0, 2));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1); lp.setMargins(dp(4),0,dp(4),0);
-        parent.addView(box, lp);
+    private void buildSpeedHero() {
+        FrameLayout hero = new FrameLayout(this);
+        hero.setBackground(gradient(GREEN, Color.rgb(0, 126, 89), 20));
+        hero.setPadding(dp(18), dp(14), dp(18), dp(14));
+        hero.setElevation(dp(2));
+
+        TextView watermark = text("🚲", 120, Color.WHITE, true);
+        watermark.setAlpha(0.08f);
+        watermark.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams wmLp = new FrameLayout.LayoutParams(-1, -1);
+        hero.addView(watermark, wmLp);
+
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setGravity(Gravity.LEFT);
+        hero.addView(column, new FrameLayout.LayoutParams(-1, -1));
+
+        TextView label = text("◴  AKTUALNA PRĘDKOŚĆ", 13, Color.rgb(215, 250, 229), true);
+        column.addView(label, new LinearLayout.LayoutParams(-1, dp(28)));
+
+        LinearLayout speedLine = new LinearLayout(this);
+        speedLine.setGravity(Gravity.BOTTOM);
+        speedValueText = text("0.0", 56, Color.WHITE, true);
+        speedValueText.setGravity(Gravity.BOTTOM);
+        speedLine.addView(speedValueText, new LinearLayout.LayoutParams(-2, dp(82)));
+        TextView unit = text(" km/h", 20, Color.rgb(210, 242, 224), true);
+        unit.setGravity(Gravity.CENTER_VERTICAL | Gravity.BOTTOM);
+        speedLine.addView(unit, new LinearLayout.LayoutParams(-2, dp(82)));
+        column.addView(speedLine, new LinearLayout.LayoutParams(-1, dp(84)));
+
+        speedSummaryText = text("Średnia: 0.000 km/h  •  Maks: 0.0 km/h", 13, Color.rgb(219, 246, 229), true);
+        speedSummaryText.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        column.addView(speedSummaryText, new LinearLayout.LayoutParams(-1, dp(28)));
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(170));
+        lp.setMargins(0, dp(4), 0, dp(14));
+        contentBox.addView(hero, lp);
+    }
+
+    private void buildDistanceTimeRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, dp(106));
+        rowLp.setMargins(0, 0, 0, dp(14));
+        contentBox.addView(row, rowLp);
+
+        distanceText = buildBigStatCard(row, "⌘", "0.00\nkm dystansu", GREEN_DARK);
+        timeText = buildBigStatCard(row, "◷", "00:00:00\nczas jazdy", BLUE);
+    }
+
+    private TextView buildBigStatCard(LinearLayout parent, String icon, String value, int accent) {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setGravity(Gravity.CENTER);
+        c.setPadding(dp(8), dp(8), dp(8), dp(8));
+        c.setBackground(round(CARD_BG, 16, BORDER, 1));
+        c.setElevation(dp(2));
+
+        TextView i = text(icon, 20, accent, true);
+        i.setGravity(Gravity.CENTER);
+        c.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView v = text(value, 17, TEXT, true);
+        v.setGravity(Gravity.CENTER);
+        c.addView(v, new LinearLayout.LayoutParams(-1, 0, 2));
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+        lp.setMargins(dp(5), 0, dp(5), 0);
+        parent.addView(c, lp);
         return v;
     }
 
-    private TextView modeButton(String label) {
-        TextView t = text(label, 14, NAVY, true);
-        t.setGravity(Gravity.CENTER);
-        return t;
+    private void buildGpsCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(round(CARD_BG, 18, BORDER, 1));
+        card.setElevation(dp(2));
+
+        FrameLayout mapFrame = new FrameLayout(this);
+        routeView = new RouteMapView(this);
+        routeView.setOnClickListener(v -> showRouteMapDialog("Aktualna trasa", lastPointsJson,
+                String.format(Locale.US, "Dystans %s  •  czas %s", compactFirstLine(distanceText), formatDuration(lastElapsedMs))));
+        mapFrame.addView(routeView, new FrameLayout.LayoutParams(-1, -1));
+
+        statusText = pill("●  GPS gotowy", Color.WHITE, GREEN, 12, true);
+        FrameLayout.LayoutParams statusLp = new FrameLayout.LayoutParams(dp(120), dp(30));
+        statusLp.leftMargin = dp(12);
+        statusLp.topMargin = dp(10);
+        mapFrame.addView(statusText, statusLp);
+
+        card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(132)));
+
+        LinearLayout extras = new LinearLayout(this);
+        extras.setGravity(Gravity.CENTER);
+        extras.setPadding(dp(6), dp(8), dp(6), dp(8));
+        extras.setBackgroundColor(Color.WHITE);
+        elevationText = buildMiniMetric(extras, "▲", "Wzniesienie", "--", Color.rgb(72, 142, 55));
+        caloriesText = buildMiniMetric(extras, "♨", "Kalorie", "--", Color.rgb(58, 110, 50));
+        paceText = buildMiniMetric(extras, "◴", "Tempo", "--", Color.rgb(58, 110, 50));
+        card.addView(extras, new LinearLayout.LayoutParams(-1, dp(68)));
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(200));
+        lp.setMargins(0, 0, 0, dp(14));
+        contentBox.addView(card, lp);
     }
 
-    private void setMode(String mode) {
-        if (running) { Toast.makeText(this, "Tryb można zmienić przed startem jazdy.", Toast.LENGTH_SHORT).show(); return; }
-        selectedMode = mode;
-        prefs().edit().putString("last_mode", mode).apply();
-        updateModeButtons();
+    private TextView buildMiniMetric(LinearLayout parent, String icon, String label, String value, int accent) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER);
+        TextView i = text(icon, 14, accent, true);
+        i.setGravity(Gravity.CENTER);
+        col.addView(i, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView v = text(value, 14, TEXT, true);
+        v.setGravity(Gravity.CENTER);
+        col.addView(v, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView l = text(label, 11, MUTED, false);
+        l.setGravity(Gravity.CENTER);
+        col.addView(l, new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+        parent.addView(col, lp);
+        return v;
     }
 
-    private void updateModeButtons() {
-        if (modeRower == null || modeSamochod == null) return;
-        boolean bike = "Rower".equals(selectedMode);
-        modeRower.setBackground(round(bike ? GREEN : Color.TRANSPARENT, 18, Color.TRANSPARENT, 0));
-        modeSamochod.setBackground(round(!bike ? BLUE : Color.TRANSPARENT, 18, Color.TRANSPARENT, 0));
-        modeRower.setTextColor(bike ? Color.WHITE : Color.rgb(51,65,85));
-        modeSamochod.setTextColor(!bike ? Color.WHITE : Color.rgb(51,65,85));
+    private void buildActionRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, dp(60));
+        rowLp.setMargins(0, 0, 0, dp(14));
+        contentBox.addView(row, rowLp);
+
+        primaryActionButton = actionBtn("▷", "Rozpocznij jazdę", GREEN, v -> primaryRideAction());
+        primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
+        primaryActionLabel = (TextView) primaryActionButton.getChildAt(1);
+        LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(0, -1, 1);
+        pLp.setMargins(0, 0, dp(8), 0);
+        row.addView(primaryActionButton, pLp);
+
+        TextView stop = squareAction("■", RED, v -> stopRide());
+        LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(dp(58), -1);
+        sLp.setMargins(0, 0, dp(8), 0);
+        row.addView(stop, sLp);
+
+        TextView reset = squareAction("↻", TEXT, v -> resetRide());
+        row.addView(reset, new LinearLayout.LayoutParams(dp(58), -1));
+    }
+
+    private void buildRecentRides() {
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = text("OSTATNIE JAZDY", 12, MUTED, true);
+        title.setLetterSpacing(0.08f);
+        titleRow.addView(title, new LinearLayout.LayoutParams(-2, dp(32)));
+        TextView line = text("", 1, BORDER, false);
+        line.setBackgroundColor(BORDER);
+        LinearLayout.LayoutParams lineLp = new LinearLayout.LayoutParams(0, dp(1), 1);
+        lineLp.leftMargin = dp(12);
+        titleRow.addView(line, lineLp);
+        contentBox.addView(titleRow, new LinearLayout.LayoutParams(-1, dp(34)));
+
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
+            if (arr.length() == 0) {
+                TextView empty = text("Brak zapisanych jazd. Po zakończeniu trasy pojawią się tutaj ostatnie wyniki.", 13, MUTED, false);
+                empty.setGravity(Gravity.CENTER_VERTICAL);
+                contentBox.addView(empty, new LinearLayout.LayoutParams(-1, dp(58)));
+                return;
+            }
+            LinearLayout list = new LinearLayout(this);
+            list.setOrientation(LinearLayout.VERTICAL);
+            list.setBackground(round(CARD_BG, 18, BORDER, 1));
+            list.setElevation(dp(2));
+            int shown = 0;
+            for (int i = arr.length() - 1; i >= 0 && shown < 2; i--, shown++) {
+                JSONObject o = arr.getJSONObject(i);
+                list.addView(recentRideRow(o), new LinearLayout.LayoutParams(-1, dp(62)));
+                if (shown == 0 && arr.length() > 1) {
+                    TextView divider = new TextView(this);
+                    divider.setBackgroundColor(Color.rgb(235, 231, 223));
+                    list.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
+                }
+            }
+            contentBox.addView(list, new LinearLayout.LayoutParams(-1, dp(Math.min(2, arr.length()) * 62 + (arr.length() > 1 ? 1 : 0))));
+        } catch (Exception ignored) {}
+    }
+
+    private View recentRideRow(JSONObject o) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(6), dp(12), dp(6));
+        String mode = o.optString("mode", "Rower");
+        TextView icon = circleText(mode.equals("Samochód") ? "🚗" : "🚲", 36, Color.rgb(235, 247, 226), GREEN_DARK, 17);
+        row.addView(icon);
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setPadding(dp(12), 0, 0, 0);
+        labels.addView(text(mode.equals("Samochód") ? "Przejazd samochodem" : "Przejazd", 13, TEXT, true), new LinearLayout.LayoutParams(-1, 0, 1));
+        labels.addView(text(o.optString("date", ""), 11, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
+        row.addView(labels, new LinearLayout.LayoutParams(0, -1, 1));
+        TextView dist = text(String.format(Locale.US, "%.2f km  ›", o.optDouble("distanceKm", 0)), 13, GREEN_DARK, true);
+        dist.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        row.addView(dist, new LinearLayout.LayoutParams(dp(96), -1));
+        return row;
+    }
+
+    private void renderHistory() {
+        currentTab = 1;
+        updateNav();
+        contentBox.removeAllViews();
+        contentBox.setPadding(dp(16), 0, dp(16), dp(18));
+        contentBox.addView(text("Historia", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(48)));
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
+            if (arr.length() == 0) {
+                TextView empty = text("Brak zapisanych jazd.", 16, MUTED, false);
+                empty.setGravity(Gravity.CENTER);
+                contentBox.addView(empty, new LinearLayout.LayoutParams(-1, dp(140)));
+                return;
+            }
+            for (int i = arr.length() - 1; i >= 0; i--) addHistoryCard(arr.getJSONObject(i));
+        } catch (Exception e) {
+            contentBox.addView(text("Nie udało się odczytać historii.", 16, RED, true));
+        }
+    }
+
+    private void addHistoryCard(JSONObject o) throws Exception {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setBackground(round(CARD_BG, 18, BORDER, 1));
+        card.setElevation(dp(2));
+
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        String mode = o.optString("mode", "Rower");
+        TextView icon = circleText(mode.equals("Samochód") ? "🚗" : "🚲", 44, mode.equals("Samochód") ? BLUE : GREEN, Color.WHITE, 20);
+        top.addView(icon);
+        LinearLayout info = new LinearLayout(this);
+        info.setOrientation(LinearLayout.VERTICAL);
+        info.setPadding(dp(12), 0, 0, 0);
+        info.addView(text(mode, 15, TEXT, true), new LinearLayout.LayoutParams(-1, 0, 1));
+        info.addView(text(o.optString("date", ""), 12, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
+        top.addView(info, new LinearLayout.LayoutParams(0, -1, 1));
+        TextView dist = text(String.format(Locale.US, "%.2f km  ›", o.optDouble("distanceKm", 0)), 17, NAVY, true);
+        dist.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        top.addView(dist, new LinearLayout.LayoutParams(dp(112), -1));
+        card.addView(top, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        TextView metrics = text(String.format(Locale.US, "⏱ %s   •   śr. %.3f km/h   •   maks. %.1f km/h",
+                o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0)), 10, TEXT, true);
+        metrics.setSingleLine(true);
+        card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(28)));
+
+        String pointsForMap = o.optString("pointsJson", "[]");
+        String mapSummary = String.format(Locale.US, "%s  •  %.2f km  •  %s  •  śr. %.3f km/h  •  maks. %.1f km/h",
+                mode, o.optDouble("distanceKm", 0), o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0));
+        RouteMapView rv = new RouteMapView(this);
+        rv.setPointsFromJson(pointsForMap);
+        rv.setOnClickListener(v -> showRouteMapDialog("Szczegóły trasy", pointsForMap, mapSummary));
+        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(104));
+        rvLp.topMargin = dp(8);
+        card.addView(rv, rvLp);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(212));
+        lp.setMargins(0, 0, 0, dp(12));
+        contentBox.addView(card, lp);
+    }
+
+    private void renderProgress() {
+        currentTab = 2;
+        updateNav();
+        contentBox.removeAllViews();
+        contentBox.setPadding(dp(16), 0, dp(16), dp(18));
+        contentBox.addView(text("Postępy", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(50)));
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
+            double total = 0, bestAvg = 0, bestMax = 0;
+            long time = 0;
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                total += o.optDouble("distanceKm", 0);
+                bestAvg = Math.max(bestAvg, o.optDouble("avg", 0));
+                bestMax = Math.max(bestMax, o.optDouble("max", 0));
+                time += o.optLong("elapsedMs", 0);
+            }
+            LinearLayout r1 = new LinearLayout(this);
+            r1.setGravity(Gravity.CENTER);
+            contentBox.addView(r1, new LinearLayout.LayoutParams(-1, dp(110)));
+            buildBigStatCard(r1, "Σ", String.format(Locale.US, "%.2f\nkm razem", total), GREEN_DARK);
+            buildBigStatCard(r1, "◷", formatDuration(time) + "\nczas", BLUE);
+            LinearLayout r2 = new LinearLayout(this);
+            r2.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(110));
+            lp.topMargin = dp(12);
+            contentBox.addView(r2, lp);
+            buildBigStatCard(r2, "↗", String.format(Locale.US, "%.3f\nnajl. śr.", bestAvg), GREEN_DARK);
+            buildBigStatCard(r2, "▲", String.format(Locale.US, "%.1f\nrekord", bestMax), NAVY);
+        } catch (Exception ignored) {}
+    }
+
+    private void renderProfile() {
+        currentTab = 3;
+        updateNav();
+        contentBox.removeAllViews();
+        contentBox.setPadding(dp(16), 0, dp(16), dp(18));
+        contentBox.addView(text("Profil i ustawienia", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(50)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setBackground(round(CARD_BG, 18, BORDER, 1));
+        card.setElevation(dp(2));
+        card.addView(text("Wersja: " + VERSION_NAME, 15, TEXT, true), new LinearLayout.LayoutParams(-1, dp(34)));
+        card.addView(settingsButton("Sprawdź aktualizację", GREEN, v -> checkForUpdates(true)));
+        card.addView(settingsButton("Zezwolenia i ustawienia aplikacji", BLUE, v -> openAppSettings()));
+        card.addView(settingsButton("Ustawienia baterii Android", Color.rgb(168, 112, 35), v -> openBatterySettings()));
+        card.addView(settingsButton("Wyczyść historię jazdy", RED, v -> confirmClearHistory()));
+        contentBox.addView(card, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void chooseModeDialog() {
+        if (running) {
+            Toast.makeText(this, "Tryb można zmienić przed startem jazdy.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] modes = {"Rower", "Samochód"};
+        int checked = "Samochód".equals(selectedMode) ? 1 : 0;
+        new AlertDialog.Builder(this)
+                .setTitle("Tryb jazdy")
+                .setSingleChoiceItems(modes, checked, (dialog, which) -> {
+                    selectedMode = modes[which];
+                    prefs().edit().putString("last_mode", selectedMode).apply();
+                    Toast.makeText(this, "Wybrano: " + selectedMode, Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Anuluj", null)
+                .show();
+    }
+
+    private void primaryRideAction() {
+        if (!running) startRide();
+        else togglePause();
     }
 
     private void startRide() {
@@ -424,12 +612,7 @@ public class MainActivity extends android.app.Activity {
         i.setAction(RideTrackingService.ACTION_START);
         i.putExtra("mode", selectedMode);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
-        Toast.makeText(this, "Pomiar uruchomiony. Powiadomienie utrzyma GPS po blokadzie ekranu.", Toast.LENGTH_LONG).show();
-    }
-
-    private void primaryRideAction() {
-        if (!running) startRide();
-        else togglePause();
+        Toast.makeText(this, "Pomiar uruchomiony.", Toast.LENGTH_SHORT).show();
     }
 
     private void togglePause() {
@@ -439,10 +622,14 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void stopRide() {
+        if (!running) {
+            Toast.makeText(this, "Pomiar nie jest uruchomiony.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Intent i = new Intent(this, RideTrackingService.class);
         i.setAction(RideTrackingService.ACTION_STOP);
         startService(i);
-        Toast.makeText(this, "Jazda zakończona i zapisana w historii.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Jazda zakończona i zapisana.", Toast.LENGTH_SHORT).show();
     }
 
     private void resetRide() {
@@ -450,16 +637,19 @@ public class MainActivity extends android.app.Activity {
         i.setAction(RideTrackingService.ACTION_RESET);
         try { startService(i); } catch (Exception ignored) {}
         resetLocalViewOnly();
-        Toast.makeText(this, running ? "Pomiar wyzerowany, jazda trwa dalej." : "Licznik wyzerowany.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, running ? "Pomiar wyzerowany." : "Licznik wyzerowany.", Toast.LENGTH_SHORT).show();
     }
 
     private void resetLocalViewOnly() {
-        if (gaugeView != null) gaugeView.setSpeed(0);
-        if (avgText != null) avgText.setText("0.000 km/h");
-        if (distanceText != null) distanceText.setText("0.00\nkm");
-        if (timeText != null) timeText.setText("00:00:00\njazdy");
-        if (maxText != null) maxText.setText("0.0\nkm/h");
+        if (speedValueText != null) speedValueText.setText("0.0");
+        if (speedSummaryText != null) speedSummaryText.setText("Średnia: 0.000 km/h  •  Maks: 0.0 km/h");
+        if (distanceText != null) distanceText.setText("0.00\nkm dystansu");
+        if (timeText != null) timeText.setText("00:00:00\nczas jazdy");
+        if (elevationText != null) elevationText.setText("--");
+        if (caloriesText != null) caloriesText.setText("--");
+        if (paceText != null) paceText.setText("--");
         if (routeView != null) routeView.clear();
+        lastPointsJson = "[]";
         lastElapsedMs = 0;
         elapsedBaseMs = 0;
         elapsedSyncRealtime = SystemClock.elapsedRealtime();
@@ -470,7 +660,7 @@ public class MainActivity extends android.app.Activity {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.ACCESS_FINE_LOCATION);
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.POST_NOTIFICATIONS);
         if (!missing.isEmpty()) {
-            if (showInfo) Toast.makeText(this, "Aplikacja potrzebuje lokalizacji i powiadomienia, żeby działać po zablokowaniu ekranu.", Toast.LENGTH_LONG).show();
+            if (showInfo) Toast.makeText(this, "Aplikacja potrzebuje lokalizacji i powiadomienia.", Toast.LENGTH_LONG).show();
             requestPermissions(missing.toArray(new String[0]), REQ_PERMISSIONS);
             return false;
         }
@@ -483,73 +673,28 @@ public class MainActivity extends android.app.Activity {
         try { startService(i); } catch (Exception ignored) {}
     }
 
-    private void updateStatus() {
+    private void updateStatus(double accuracy) {
         if (statusText == null) return;
-        if (running && !paused) statusText.setText("GPS aktywny");
-        else if (running) statusText.setText("Pomiar wstrzymany");
-        else statusText.setText("GPS gotowy");
+        if (running && !paused) statusText.setText("●  GPS aktywny");
+        else if (running) statusText.setText("●  Pauza");
+        else statusText.setText("●  GPS gotowy");
     }
 
-    private void renderHistory() {
-        currentTab = 1; updateNav(); controlsRow.setVisibility(View.GONE);
-        contentBox.removeAllViews(); contentBox.setPadding(dp(16), 0, dp(16), dp(18));
-        contentBox.addView(text("Historia jazdy", 22, NAVY, true), new LinearLayout.LayoutParams(-1, dp(48)));
-        try {
-            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
-            if (arr.length() == 0) {
-                TextView empty = text("Brak zapisanych jazd. Uruchom pomiar i kliknij Stop.", 17, MUTED, false);
-                empty.setGravity(Gravity.CENTER);
-                contentBox.addView(empty, new LinearLayout.LayoutParams(-1, dp(160)));
-                return;
-            }
-            for (int i = arr.length() - 1; i >= 0; i--) addHistoryCard(arr.getJSONObject(i), i == arr.length() - 1);
-        } catch (Exception e) {
-            contentBox.addView(text("Nie udało się odczytać historii.", 16, RED, true));
+    private void updatePrimaryButton() {
+        if (primaryActionButton == null || primaryActionIcon == null || primaryActionLabel == null) return;
+        if (!running) {
+            primaryActionIcon.setText("▷");
+            primaryActionLabel.setText("Rozpocznij jazdę");
+            primaryActionButton.setBackground(gradient(GREEN, Color.rgb(0, 126, 89), 14));
+        } else if (paused) {
+            primaryActionIcon.setText("▷");
+            primaryActionLabel.setText("Wznów jazdę");
+            primaryActionButton.setBackground(gradient(GREEN, Color.rgb(0, 126, 89), 14));
+        } else {
+            primaryActionIcon.setText("Ⅱ");
+            primaryActionLabel.setText("Pauza");
+            primaryActionButton.setBackground(gradient(GREEN, Color.rgb(0, 126, 89), 14));
         }
-    }
-
-    private void addHistoryCard(JSONObject o, boolean expanded) throws Exception {
-        LinearLayout card = card();
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
-
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        String mode = o.optString("mode", "Rower");
-        int accent = mode.equals("Samochód") ? BLUE : GREEN;
-        TextView icon = circleText(mode.equals("Samochód") ? "🚗" : "🚲", 46, accent, Color.WHITE, 21);
-        row.addView(icon);
-
-        LinearLayout names = new LinearLayout(this);
-        names.setOrientation(LinearLayout.VERTICAL);
-        names.setPadding(dp(12),0,0,0);
-        names.addView(text(mode, 15, NAVY, true), new LinearLayout.LayoutParams(-1, 0, 1));
-        names.addView(text(o.optString("date", ""), 12, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
-        row.addView(names, new LinearLayout.LayoutParams(0, -1, 1));
-
-        TextView dist = text(String.format(Locale.US, "%.2f km  ›", o.optDouble("distanceKm", 0)), 18, NAVY, true);
-        dist.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
-        row.addView(dist, new LinearLayout.LayoutParams(dp(108), -1));
-        card.addView(row, new LinearLayout.LayoutParams(-1, dp(52)));
-
-        TextView metrics = text(String.format(Locale.US, "⏱  %s   •   śr. %.3f km/h   •   maks. %.1f km/h",
-                o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0)), 10, Color.rgb(51,65,85), true);
-        metrics.setSingleLine(true);
-        metrics.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(28)));
-
-        String pointsForMap = o.optString("pointsJson", "[]");
-        String mapSummary = String.format(Locale.US, "%s  •  %.2f km  •  %s  •  śr. %.3f km/h  •  maks. %.1f km/h",
-                mode, o.optDouble("distanceKm", 0), o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0));
-        RouteMapView rv = new RouteMapView(this);
-        rv.setPointsFromJson(pointsForMap);
-        rv.setOnClickListener(v -> showRouteMapDialog("Szczegóły trasy", pointsForMap, mapSummary));
-        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(108));
-        rvLp.topMargin = dp(8);
-        card.addView(rv, rvLp);
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(226));
-        lp.topMargin = dp(10);
-        contentBox.addView(card, lp);
     }
 
     private void showRouteMapDialog(String title, String pointsJson, String summary) {
@@ -575,7 +720,7 @@ public class MainActivity extends android.app.Activity {
         top.setGravity(Gravity.CENTER_VERTICAL);
         TextView titleView = text(title, 19, NAVY, true);
         top.addView(titleView, new LinearLayout.LayoutParams(0, dp(42), 1));
-        TextView fitBtnTop = pill("Dopasuj", BLUE, Color.WHITE, 13, true);
+        TextView fitBtnTop = pill("Dopasuj", Color.WHITE, GREEN, 13, true);
         top.addView(fitBtnTop, new LinearLayout.LayoutParams(dp(86), dp(36)));
         TextView closeBtn = circleText("×", 36, Color.WHITE, NAVY, 22);
         LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(dp(38), dp(38));
@@ -592,18 +737,10 @@ public class MainActivity extends android.app.Activity {
         fullMap.setPointsFromJson(pointsJson);
         root.addView(fullMap, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        LinearLayout bottom = new LinearLayout(this);
-        bottom.setGravity(Gravity.CENTER);
-        bottom.setPadding(0, dp(10), 0, 0);
-        TextView fitBtn = settingsButton("Dopasuj trasę", BLUE, v -> fullMap.fitRoute());
-        TextView closeBottom = settingsButton("Zamknij", Color.rgb(71, 85, 105), v -> d.dismiss());
-        LinearLayout.LayoutParams b1 = new LinearLayout.LayoutParams(0, dp(46), 1);
-        b1.setMargins(0, 0, dp(6), 0);
-        LinearLayout.LayoutParams b2 = new LinearLayout.LayoutParams(0, dp(46), 1);
-        b2.setMargins(dp(6), 0, 0, 0);
-        bottom.addView(fitBtn, b1);
-        bottom.addView(closeBottom, b2);
-        root.addView(bottom, new LinearLayout.LayoutParams(-1, dp(62)));
+        TextView closeBottom = settingsButton("Zamknij", GREEN, v -> d.dismiss());
+        LinearLayout.LayoutParams closeBottomLp = new LinearLayout.LayoutParams(-1, dp(48));
+        closeBottomLp.setMargins(0, dp(10), 0, 0);
+        root.addView(closeBottom, closeBottomLp);
 
         closeBtn.setOnClickListener(v -> d.dismiss());
         fitBtnTop.setOnClickListener(v -> fullMap.fitRoute());
@@ -618,44 +755,11 @@ public class MainActivity extends android.app.Activity {
         d.show();
     }
 
-    private String compactStatText(TextView t) {
+    private String compactFirstLine(TextView t) {
         if (t == null || t.getText() == null) return "--";
-        return t.getText().toString().replace("\n", " ").trim();
-    }
-
-    private TextView metricItem(String prefix, String value) {
-        TextView t = text(prefix + "  " + value, 11, Color.rgb(51,65,85), true);
-        t.setGravity(Gravity.CENTER);
-        t.setSingleLine(true);
-        return t;
-    }
-
-    private void renderStats() {
-        currentTab = 2; updateNav(); controlsRow.setVisibility(View.GONE);
-        contentBox.removeAllViews(); contentBox.setPadding(dp(16), 0, dp(16), dp(18));
-        contentBox.addView(text("Statystyki", 24, NAVY, true), new LinearLayout.LayoutParams(-1, dp(54)));
-        try {
-            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
-            double total = 0, bestAvg = 0, bestMax = 0; long time = 0;
-            int bikeCount = 0, carCount = 0;
-            for (int i=0;i<arr.length();i++) {
-                JSONObject o=arr.getJSONObject(i);
-                total += o.optDouble("distanceKm",0);
-                bestAvg=Math.max(bestAvg,o.optDouble("avg",0));
-                bestMax=Math.max(bestMax,o.optDouble("max",0));
-                time += o.optLong("elapsedMs",0);
-                if ("Samochód".equals(o.optString("mode"))) carCount++; else bikeCount++;
-            }
-            LinearLayout row1 = new LinearLayout(this); row1.setGravity(Gravity.CENTER); contentBox.addView(row1, new LinearLayout.LayoutParams(-1, dp(112)));
-            addStat(row1, "Σ", "Dystans", String.format(Locale.US, "%.2f\nkm", total), BLUE);
-            addStat(row1, "◴", "Czas", formatDuration(time) + "\nrazem", GREEN);
-            LinearLayout row2 = new LinearLayout(this); row2.setGravity(Gravity.CENTER); LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(112)); lp.topMargin=dp(10); contentBox.addView(row2, lp);
-            addStat(row2, "↗", "Najl. średnia", String.format(Locale.US, "%.3f\nkm/h", bestAvg), GREEN);
-            addStat(row2, "▲", "Rekord", String.format(Locale.US, "%.1f\nkm/h", bestMax), PURPLE);
-            LinearLayout row3 = new LinearLayout(this); row3.setGravity(Gravity.CENTER); LinearLayout.LayoutParams lp3 = new LinearLayout.LayoutParams(-1, dp(112)); lp3.topMargin=dp(10); contentBox.addView(row3, lp3);
-            addStat(row3, "🚲", "Rower", bikeCount + "\njazd", GREEN);
-            addStat(row3, "🚗", "Samochód", carCount + "\njazd", BLUE);
-        } catch (Exception ignored) {}
+        String s = t.getText().toString();
+        int idx = s.indexOf('\n');
+        return idx >= 0 ? s.substring(0, idx) + " km" : s;
     }
 
     private void showSettings() {
@@ -663,25 +767,22 @@ public class MainActivity extends android.app.Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(18), dp(8), dp(18), dp(6));
 
-        TextView version = text("Wersja: " + VERSION_NAME + "\nPełna wersja Android — build release", 16, NAVY, true);
+        TextView version = text("Wersja: " + VERSION_NAME + "\nTryb jazdy: " + selectedMode, 16, NAVY, true);
         box.addView(version, new LinearLayout.LayoutParams(-1, dp(64)));
 
         CheckBox autoUpdate = new CheckBox(this);
         autoUpdate.setText("Sprawdzaj aktualizacje przy starcie");
         autoUpdate.setTextSize(15);
-        autoUpdate.setTextColor(Color.rgb(51,65,85));
+        autoUpdate.setTextColor(TEXT);
         autoUpdate.setChecked(prefs().getBoolean("auto_update_check", false));
         autoUpdate.setOnCheckedChangeListener((buttonView, isChecked) -> prefs().edit().putBoolean("auto_update_check", isChecked).apply());
         box.addView(autoUpdate, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        box.addView(settingsButton("Sprawdź aktualizację", BLUE, v -> checkForUpdates(true)));
-        box.addView(settingsButton("Zezwolenia i ustawienia aplikacji", GREEN, v -> openAppSettings()));
-        box.addView(settingsButton("Ustawienia baterii Android", ORANGE, v -> openBatterySettings()));
+        box.addView(settingsButton("Zmień tryb jazdy", GREEN, v -> chooseModeDialog()));
+        box.addView(settingsButton("Sprawdź aktualizację", GREEN, v -> checkForUpdates(true)));
+        box.addView(settingsButton("Zezwolenia i ustawienia aplikacji", BLUE, v -> openAppSettings()));
+        box.addView(settingsButton("Ustawienia baterii Android", Color.rgb(168, 112, 35), v -> openBatterySettings()));
         box.addView(settingsButton("Wyczyść historię jazdy", RED, v -> confirmClearHistory()));
-
-        TextView note = text("Działanie po zablokowaniu ekranu wymaga stałego powiadomienia GPS. Jeżeli telefon ubija aplikację, wyłącz oszczędzanie baterii dla Licznika jazdy.", 13, MUTED, false);
-        note.setPadding(0, dp(8), 0, 0);
-        box.addView(note, new LinearLayout.LayoutParams(-1, dp(84)));
 
         new AlertDialog.Builder(this)
                 .setTitle("Opcje")
@@ -693,10 +794,10 @@ public class MainActivity extends android.app.Activity {
     private TextView settingsButton(String label, int color, View.OnClickListener listener) {
         TextView b = text(label, 15, Color.WHITE, true);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(round(color, 15, color, 0));
+        b.setBackground(round(color, 14, color, 0));
         b.setOnClickListener(listener);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(46));
-        lp.setMargins(0, dp(6), 0, 0);
+        lp.setMargins(0, dp(7), 0, 0);
         b.setLayoutParams(lp);
         return b;
     }
@@ -709,6 +810,7 @@ public class MainActivity extends android.app.Activity {
                     prefs().edit().putString("history", "[]").apply();
                     Toast.makeText(this, "Historia wyczyszczona.", Toast.LENGTH_SHORT).show();
                     if (currentTab == 1) renderHistory();
+                    if (currentTab == 0) renderRide();
                 })
                 .setNegativeButton("Anuluj", null)
                 .show();
@@ -749,7 +851,6 @@ public class MainActivity extends android.app.Activity {
                 remoteCode = versionCodeFromTag(tag);
 
                 if (tag.equals(CURRENT_RELEASE_TAG) || (remoteCode > 0 && remoteCode <= CURRENT_VERSION_CODE)) {
-                    apkUrl = null;
                     error = "Masz aktualną wersję programu.";
                 } else {
                     JSONArray assets = root.optJSONArray("assets");
@@ -771,7 +872,7 @@ public class MainActivity extends android.app.Activity {
                 if (finalApkUrl != null) {
                     new AlertDialog.Builder(this)
                             .setTitle("Dostępna aktualizacja")
-                            .setMessage("Znaleziono wersję: " + finalTag + "\n\nPobiorę plik APK. Android poprosi Cię jeszcze o potwierdzenie instalacji aktualizacji.")
+                            .setMessage("Znaleziono wersję: " + finalTag)
                             .setPositiveButton("Pobierz", (d,w) -> openUrl(finalApkUrl))
                             .setNegativeButton("Później", null)
                             .show();
@@ -803,51 +904,65 @@ public class MainActivity extends android.app.Activity {
         catch (Exception e) { Toast.makeText(this, "Nie można otworzyć linku.", Toast.LENGTH_SHORT).show(); }
     }
 
-    private void updateHeaderClock() {
-        if (clockPill != null) clockPill.setText(currentClockText());
+    private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.HORIZONTAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(12), 0, dp(12), 0);
+        b.setBackground(gradient(color, Color.rgb(0, 126, 89), 14));
+        b.setElevation(dp(3));
+        b.setOnClickListener(listener);
+        TextView i = text(icon, 22, Color.WHITE, true);
+        i.setGravity(Gravity.CENTER);
+        b.addView(i, new LinearLayout.LayoutParams(dp(42), -1));
+        TextView l = text(label, 15, Color.WHITE, true);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
+        return b;
     }
 
-    private String currentClockText() {
-        return new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+    private TextView squareAction(String label, int color, View.OnClickListener listener) {
+        TextView b = text(label, 20, color, true);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(round(Color.WHITE, 14, BORDER, 1));
+        b.setElevation(dp(2));
+        b.setOnClickListener(listener);
+        return b;
     }
 
-    private void updateControlStates() {
-        if (primaryActionButton == null || primaryActionIcon == null || primaryActionLabel == null) return;
-        if (!running) {
-            primaryActionIcon.setText("▶");
-            primaryActionLabel.setText("Start");
-            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
-        } else if (paused) {
-            primaryActionIcon.setText("▶");
-            primaryActionLabel.setText("Wznów");
-            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
-        } else {
-            primaryActionIcon.setText("Ⅱ");
-            primaryActionLabel.setText("Pauza");
-            primaryActionButton.setBackground(gradient(GREEN, darker(GREEN), 18));
-        }
+    private TextView navItem(String label, boolean active) {
+        TextView t = text(label, 12, active ? GREEN_DARK : MUTED, true);
+        t.setGravity(Gravity.CENTER);
+        return t;
     }
 
     private void updateNav() {
         if (navRide == null) return;
-        navRide.setBackground(round(currentTab == 0 ? Color.rgb(239,246,255) : Color.TRANSPARENT, 20, Color.TRANSPARENT, 0));
-        navHistory.setBackground(round(currentTab == 1 ? Color.rgb(239,246,255) : Color.TRANSPARENT, 20, Color.TRANSPARENT, 0));
-        navStats.setBackground(round(currentTab == 2 ? Color.rgb(239,246,255) : Color.TRANSPARENT, 20, Color.TRANSPARENT, 0));
-        navRide.setTextColor(currentTab == 0 ? GREEN : Color.rgb(51,65,85));
-        navHistory.setTextColor(currentTab == 1 ? BLUE : Color.rgb(51,65,85));
-        navStats.setTextColor(currentTab == 2 ? BLUE : Color.rgb(51,65,85));
+        navRide.setTextColor(currentTab == 0 ? GREEN_DARK : MUTED);
+        navHistory.setTextColor(currentTab == 1 ? GREEN_DARK : MUTED);
+        navProgress.setTextColor(currentTab == 2 ? GREEN_DARK : MUTED);
+        navProfile.setTextColor(currentTab == 3 ? GREEN_DARK : MUTED);
     }
 
-    private TextView navItem(String label, boolean active) {
-        TextView t = text(label, 13, active ? GREEN : Color.rgb(51,65,85), true);
-        t.setGravity(Gravity.CENTER);
-        return t;
+    private String formatCalories(double distanceKm) {
+        if (distanceKm <= 0.01) return "--";
+        double kcalPerKm = "Samochód".equals(selectedMode) ? 1.0 : 28.0;
+        return Math.round(distanceKm * kcalPerKm) + " kcal";
+    }
+
+    private String formatPace(double avgKmh) {
+        if (avgKmh <= 0.2) return "--";
+        double minPerKm = 60.0 / avgKmh;
+        int min = (int) Math.floor(minPerKm);
+        int sec = (int) Math.round((minPerKm - min) * 60.0);
+        if (sec >= 60) { min++; sec -= 60; }
+        return String.format(Locale.US, "%d:%02d", min, sec);
     }
 
     private LinearLayout card() {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackground(round(Color.WHITE, 22, BORDER, 1));
+        c.setBackground(round(CARD_BG, 18, BORDER, 1));
         c.setElevation(dp(2));
         return c;
     }
@@ -859,14 +974,14 @@ public class MainActivity extends android.app.Activity {
         t.setTextColor(color);
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setIncludeFontPadding(false);
-        if (bold) t.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return t;
     }
 
     private TextView pill(String s, int fg, int bg, int sp, boolean bold) {
         TextView t = text(s, sp, fg, bold);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(round(bg, 22, BORDER, 0));
+        t.setBackground(round(bg, 20, Color.TRANSPARENT, 0));
         return t;
     }
 
@@ -880,17 +995,10 @@ public class MainActivity extends android.app.Activity {
 
     private android.graphics.drawable.GradientDrawable gradient(int startColor, int endColor, int radius) {
         android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[]{startColor, endColor});
         g.setCornerRadius(dp(radius));
         return g;
-    }
-
-    private int darker(int color) {
-        int r = Math.max(0, (int)(Color.red(color) * 0.86));
-        int g = Math.max(0, (int)(Color.green(color) * 0.86));
-        int b = Math.max(0, (int)(Color.blue(color) * 0.86));
-        return Color.rgb(r, g, b);
     }
 
     private android.graphics.drawable.GradientDrawable round(int color, int radius, int strokeColor, int stroke) {
@@ -905,7 +1013,9 @@ public class MainActivity extends android.app.Activity {
 
     static String formatDuration(long ms) {
         long s = Math.max(0, ms / 1000);
-        long h = s / 3600; long m = (s % 3600) / 60; long sec = s % 60;
+        long h = s / 3600;
+        long m = (s % 3600) / 60;
+        long sec = s % 60;
         return String.format(Locale.US, "%02d:%02d:%02d", h, m, sec);
     }
 }

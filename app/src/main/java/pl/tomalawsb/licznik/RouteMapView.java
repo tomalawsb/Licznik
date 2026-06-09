@@ -62,7 +62,7 @@ public class RouteMapView extends FrameLayout {
         addView(mapView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
         placeholder = new TextView(context);
-        placeholder.setText("Trasa pojawi się po odbiorze GPS");
+        placeholder.setText("Trasa pojawi się po starcie");
         placeholder.setTextColor(Color.rgb(100, 116, 139));
         placeholder.setTextSize(12);
         placeholder.setGravity(Gravity.CENTER);

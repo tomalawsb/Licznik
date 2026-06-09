@@ -40,11 +40,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v2.2-0906261554"
+          TAG="v2.4-0906261645"
           APK="app/build/outputs/apk/release/app-release.apk"
-          cp "$APK" "Licznik-v2.2-0906261554.apk"
+          cp "$APK" "Licznik-v2.4-0906261645.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "Licznik-v2.2-0906261554.apk" --clobber
+            gh release upload "$TAG" "Licznik-v2.4-0906261645.apk" --clobber
           else
-            gh release create "$TAG" "Licznik-v2.2-0906261554.apk" --title "Licznik jazdy 2.2 - 0906261554" --notes "Pełna wersja Android release. Interaktywne pełnoekranowe mapy tras z historii i aktualnej jazdy, zoom/pan oraz dopasowanie trasy."
+            gh release create "$TAG" "Licznik-v2.4-0906261645.apk" --title "Licznik jazdy 2.4 - 0906261645" --notes "Pełna wersja Android release. Przebudowany ekran główny w nowym minimalistycznym stylu: zielona karta aktualnej prędkości, ostatnie jazdy, mapa GPS i dolne menu Jazda/Historia/Postępy/Profil."
           fi
