@@ -42,9 +42,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "2.4 - 0906261645";
-    public static final String CURRENT_RELEASE_TAG = "v2.4-0906261645";
-    public static final int CURRENT_VERSION_CODE = 24;
+    public static final String VERSION_NAME = "2.5 - 0906261705";
+    public static final String CURRENT_RELEASE_TAG = "v2.5-0906261705";
+    public static final int CURRENT_VERSION_CODE = 20500;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -77,6 +77,7 @@ public class MainActivity extends android.app.Activity {
     private long elapsedBaseMs = 0;
     private long elapsedSyncRealtime = 0;
     private String lastPointsJson = "[]";
+    private boolean waitingForStopResult = false;
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
@@ -108,6 +109,14 @@ public class MainActivity extends android.app.Activity {
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
             if (pointsJson != null) lastPointsJson = pointsJson;
+            boolean stopped = intent.getBooleanExtra(RideTrackingService.EXTRA_STOPPED, false);
+            String serviceMessage = intent.getStringExtra(RideTrackingService.EXTRA_MESSAGE);
+            if (stopped && waitingForStopResult) {
+                waitingForStopResult = false;
+                Toast.makeText(MainActivity.this, serviceMessage == null ? "Pomiar zakończony." : serviceMessage, Toast.LENGTH_SHORT).show();
+                if (currentTab == 0) renderRide();
+                else if (currentTab == 1) renderHistory();
+            }
 
             lastElapsedMs = elapsed;
             elapsedBaseMs = elapsed;
@@ -438,14 +447,14 @@ public class MainActivity extends android.app.Activity {
             int shown = 0;
             for (int i = arr.length() - 1; i >= 0 && shown < 2; i--, shown++) {
                 JSONObject o = arr.getJSONObject(i);
-                list.addView(recentRideRow(o), new LinearLayout.LayoutParams(-1, dp(62)));
+                list.addView(recentRideRow(o), new LinearLayout.LayoutParams(-1, dp(74)));
                 if (shown == 0 && arr.length() > 1) {
                     TextView divider = new TextView(this);
                     divider.setBackgroundColor(Color.rgb(235, 231, 223));
                     list.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
                 }
             }
-            contentBox.addView(list, new LinearLayout.LayoutParams(-1, dp(Math.min(2, arr.length()) * 62 + (arr.length() > 1 ? 1 : 0))));
+            contentBox.addView(list, new LinearLayout.LayoutParams(-1, dp(Math.min(2, arr.length()) * 74 + (arr.length() > 1 ? 1 : 0))));
         } catch (Exception ignored) {}
     }
 
@@ -626,16 +635,18 @@ public class MainActivity extends android.app.Activity {
             Toast.makeText(this, "Pomiar nie jest uruchomiony.", Toast.LENGTH_SHORT).show();
             return;
         }
+        waitingForStopResult = true;
         Intent i = new Intent(this, RideTrackingService.class);
         i.setAction(RideTrackingService.ACTION_STOP);
         startService(i);
-        Toast.makeText(this, "Jazda zakończona i zapisana.", Toast.LENGTH_SHORT).show();
     }
 
     private void resetRide() {
-        Intent i = new Intent(this, RideTrackingService.class);
-        i.setAction(RideTrackingService.ACTION_RESET);
-        try { startService(i); } catch (Exception ignored) {}
+        if (running) {
+            Intent i = new Intent(this, RideTrackingService.class);
+            i.setAction(RideTrackingService.ACTION_RESET);
+            try { startService(i); } catch (Exception ignored) {}
+        }
         resetLocalViewOnly();
         Toast.makeText(this, running ? "Pomiar wyzerowany." : "Licznik wyzerowany.", Toast.LENGTH_SHORT).show();
     }
@@ -675,9 +686,27 @@ public class MainActivity extends android.app.Activity {
 
     private void updateStatus(double accuracy) {
         if (statusText == null) return;
-        if (running && !paused) statusText.setText("●  GPS aktywny");
-        else if (running) statusText.setText("●  Pauza");
-        else statusText.setText("●  GPS gotowy");
+        if (running && !paused) {
+            if (accuracy > 0 && accuracy <= 12) {
+                statusText.setText("●  GPS aktywny");
+                statusText.setTextColor(GREEN_DARK);
+            } else if (accuracy > 12 && accuracy <= 35) {
+                statusText.setText("●  GPS średni");
+                statusText.setTextColor(Color.rgb(168, 112, 35));
+            } else if (accuracy > 35) {
+                statusText.setText("●  GPS słaby");
+                statusText.setTextColor(RED);
+            } else {
+                statusText.setText("●  GPS aktywny");
+                statusText.setTextColor(GREEN_DARK);
+            }
+        } else if (running) {
+            statusText.setText("●  Pauza");
+            statusText.setTextColor(Color.rgb(168, 112, 35));
+        } else {
+            statusText.setText("●  GPS gotowy");
+            statusText.setTextColor(GREEN_DARK);
+        }
     }
 
     private void updatePrimaryButton() {
@@ -895,7 +924,7 @@ public class MainActivity extends android.app.Activity {
             int major = Integer.parseInt(m.group(1));
             int minor = Integer.parseInt(m.group(2));
             int patch = m.group(3) == null ? 0 : Integer.parseInt(m.group(3));
-            return major * 10 + minor + patch;
+            return major * 10000 + minor * 100 + patch;
         } catch (Exception ignored) { return -1; }
     }
 
@@ -946,7 +975,8 @@ public class MainActivity extends android.app.Activity {
 
     private String formatCalories(double distanceKm) {
         if (distanceKm <= 0.01) return "--";
-        double kcalPerKm = "Samochód".equals(selectedMode) ? 1.0 : 28.0;
+        if ("Samochód".equals(selectedMode)) return "--";
+        double kcalPerKm = 28.0;
         return Math.round(distanceKm * kcalPerKm) + " kcal";
     }
 

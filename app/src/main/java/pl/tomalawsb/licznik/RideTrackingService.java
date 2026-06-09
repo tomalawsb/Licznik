@@ -42,6 +42,9 @@ public class RideTrackingService extends Service {
     public static final String ACTION_SNAPSHOT = "pl.tomalawsb.licznik.SNAPSHOT";
     public static final String ACTION_RESET = "pl.tomalawsb.licznik.RESET";
     public static final String ACTION_UPDATE = "pl.tomalawsb.licznik.UPDATE";
+    public static final String EXTRA_STOPPED = "stopped";
+    public static final String EXTRA_HISTORY_SAVED = "historySaved";
+    public static final String EXTRA_MESSAGE = "message";
 
     private static final String CHANNEL_ID = "ride_tracking";
     private static final int NOTIFICATION_ID = 77;
@@ -113,7 +116,10 @@ public class RideTrackingService extends Service {
         else if (ACTION_PAUSE.equals(action)) pauseRide();
         else if (ACTION_RESUME.equals(action)) resumeRide();
         else if (ACTION_RESET.equals(action)) resetRide();
-        else if (ACTION_SNAPSHOT.equals(action)) sendUpdate();
+        else if (ACTION_SNAPSHOT.equals(action)) {
+            sendUpdate();
+            if (!running) stopSelf();
+        }
         return START_STICKY;
     }
 
@@ -158,13 +164,15 @@ public class RideTrackingService extends Service {
     }
 
     private void stopRide() {
-        if (running) saveHistory();
+        boolean shouldSave = running && (distanceMeters > 1.0 || getElapsedMs() > 5000 || points.length() > 1);
+        boolean saved = false;
+        if (shouldSave) saved = saveHistory();
         running = false;
         paused = false;
         tickHandler.removeCallbacks(tickRunnable);
         removeLocationUpdates();
         clearRideData();
-        sendUpdate();
+        sendUpdate(true, saved, shouldSave ? (saved ? "Jazda zakończona i zapisana." : "Jazda zakończona, ale nie udało się zapisać historii.") : "Pomiar zakończony. Brak danych do zapisania.");
         stopForeground(true);
         stopSelf();
     }
@@ -175,17 +183,21 @@ public class RideTrackingService extends Service {
         clearRideData();
         running = wasRunning;
         paused = wasPaused;
-        if (running) {
-            startElapsed = SystemClock.elapsedRealtime();
-            if (!paused) {
-                requestLocation();
-                tickHandler.removeCallbacks(tickRunnable);
-                tickHandler.post(tickRunnable);
-            }
-            updateNotification();
+
+        if (!running) {
+            sendUpdate(false, false, "Licznik wyzerowany.");
+            stopSelf();
+            return;
         }
-        sendUpdate();
-        if (!running) stopSelf();
+
+        startElapsed = SystemClock.elapsedRealtime();
+        if (!paused) {
+            requestLocation();
+            tickHandler.removeCallbacks(tickRunnable);
+            tickHandler.post(tickRunnable);
+        }
+        updateNotification();
+        sendUpdate(false, false, "Pomiar wyzerowany.");
     }
 
     private void clearRideData() {
@@ -289,6 +301,9 @@ public class RideTrackingService extends Service {
 
         long dtMs = getDeltaMs(lastRawLocation, loc);
         if (dtMs < 450) {
+            // Zbyt gęsty odczyt: nie doliczamy dystansu, ale przesuwamy punkt odniesienia,
+            // żeby kolejny interwał nie zawyżał prędkości przez stary punkt bazowy.
+            lastRawLocation = loc;
             sendUpdate();
             return;
         }
@@ -384,6 +399,10 @@ public class RideTrackingService extends Service {
     }
 
     private void sendUpdate() {
+        sendUpdate(false, false, null);
+    }
+
+    private void sendUpdate(boolean stopped, boolean historySaved, String message) {
         Intent i = new Intent(ACTION_UPDATE);
         i.setPackage(getPackageName());
         i.putExtra("running", running);
@@ -397,10 +416,13 @@ public class RideTrackingService extends Service {
         i.putExtra("points", points.length());
         i.putExtra("accuracy", (double) lastAccuracy);
         i.putExtra("pointsJson", points.toString());
+        i.putExtra(EXTRA_STOPPED, stopped);
+        i.putExtra(EXTRA_HISTORY_SAVED, historySaved);
+        if (message != null) i.putExtra(EXTRA_MESSAGE, message);
         sendBroadcast(i);
     }
 
-    private void saveHistory() {
+    private boolean saveHistory() {
         try {
             SharedPreferences sp = getSharedPreferences("licznik", MODE_PRIVATE);
             JSONArray history = new JSONArray(sp.getString("history", "[]"));
@@ -416,7 +438,10 @@ public class RideTrackingService extends Service {
             history.put(o);
             while (history.length() > 100) history.remove(0);
             sp.edit().putString("history", history.toString()).apply();
-        } catch (Exception ignored) {}
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
