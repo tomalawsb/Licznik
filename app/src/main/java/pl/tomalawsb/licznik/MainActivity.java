@@ -39,9 +39,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "1.9 - 0906261049";
-    public static final String CURRENT_RELEASE_TAG = "v1.9-0906261049";
-    public static final int CURRENT_VERSION_CODE = 9;
+    public static final String VERSION_NAME = "2.1 - 0906261534";
+    public static final String CURRENT_RELEASE_TAG = "v2.1-0906261534";
+    public static final int CURRENT_VERSION_CODE = 20;
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -63,7 +63,7 @@ public class MainActivity extends android.app.Activity {
     private TextView primaryActionIcon, primaryActionLabel;
     private TextView clockPill, statusText, modeRower, modeSamochod;
     private SpeedGaugeView gaugeView;
-    private RouteView routeView;
+    private RouteMapView routeView;
     private TextView avgText, distanceText, timeText, maxText, accuracyText;
     private TextView navRide, navHistory, navStats;
     private String selectedMode = "Rower";
@@ -181,10 +181,10 @@ public class MainActivity extends android.app.Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(18), dp(8), dp(18), dp(4));
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(74)));
+        header.setPadding(dp(16), dp(8), dp(16), dp(3));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(68)));
 
-        TextView bikeIcon = circleText("🚲", 46, Color.WHITE, GREEN_DARK, 21);
+        TextView bikeIcon = circleText("🚲", 42, Color.WHITE, GREEN_DARK, 19);
         bikeIcon.setElevation(dp(4));
         header.addView(bikeIcon);
 
@@ -193,22 +193,22 @@ public class MainActivity extends android.app.Activity {
         titleBox.setPadding(dp(12), 0, 0, 0);
         header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
 
-        TextView title = text("Licznik jazdy", 22, NAVY, true);
+        TextView title = text("Licznik jazdy", 21, NAVY, true);
         title.setSingleLine(true);
         titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
         statusText = text("GPS gotowy", 13, MUTED, false);
         statusText.setSingleLine(true);
         titleBox.addView(statusText, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 15, true);
-        clockPill.setElevation(dp(4));
-        header.addView(clockPill, new LinearLayout.LayoutParams(dp(76), dp(46)));
+        clockPill = pill(currentClockText(), BLUE, Color.WHITE, 14, true);
+        clockPill.setElevation(dp(2));
+        header.addView(clockPill, new LinearLayout.LayoutParams(dp(64), dp(34)));
 
-        TextView settings = circleText("⚙", 46, Color.WHITE, NAVY, 22);
-        settings.setElevation(dp(4));
+        TextView settings = circleText("⚙", 40, Color.WHITE, NAVY, 20);
+        settings.setElevation(dp(2));
         settings.setOnClickListener(v -> showSettings());
-        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(50), dp(50));
-        setLp.leftMargin = dp(10);
+        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(42), dp(42));
+        setLp.leftMargin = dp(8);
         header.addView(settings, setLp);
 
         contentBox = new LinearLayout(this);
@@ -366,7 +366,7 @@ public class MainActivity extends android.app.Activity {
         accuracyText = text("Dokładność: --", 13, MUTED, false);
         mapHeader.addView(accuracyText);
         mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(28)));
-        routeView = new RouteView(this);
+        routeView = new RouteMapView(this);
         mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(104)));
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(152));
         mapLp.topMargin = dp(12);
@@ -526,21 +526,19 @@ public class MainActivity extends android.app.Activity {
         row.addView(dist, new LinearLayout.LayoutParams(dp(108), -1));
         card.addView(row, new LinearLayout.LayoutParams(-1, dp(52)));
 
-        LinearLayout metrics = new LinearLayout(this);
+        TextView metrics = text(String.format(Locale.US, "⏱  %s   •   śr. %.3f km/h   •   maks. %.1f km/h",
+                o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0)), 10, Color.rgb(51,65,85), true);
+        metrics.setSingleLine(true);
         metrics.setGravity(Gravity.CENTER_VERTICAL);
-        metrics.setPadding(0, dp(4), 0, dp(4));
-        metrics.addView(metricItem("⏱", o.optString("elapsed", "00:00:00")), new LinearLayout.LayoutParams(0, -1, 1));
-        metrics.addView(metricItem("śr.", String.format(Locale.US, "%.3f", o.optDouble("avg", 0)) + " km/h"), new LinearLayout.LayoutParams(0, -1, 1.25f));
-        metrics.addView(metricItem("maks.", String.format(Locale.US, "%.1f", o.optDouble("max", 0)) + " km/h"), new LinearLayout.LayoutParams(0, -1, 1));
-        card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(34)));
+        card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(28)));
 
-        RouteView rv = new RouteView(this);
+        RouteMapView rv = new RouteMapView(this);
         rv.setPointsFromJson(o.optString("pointsJson", "[]"));
-        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(96));
+        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(108));
         rvLp.topMargin = dp(8);
         card.addView(rv, rvLp);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(214));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(226));
         lp.topMargin = dp(10);
         contentBox.addView(card, lp);
     }
@@ -716,9 +714,7 @@ public class MainActivity extends android.app.Activity {
             int major = Integer.parseInt(m.group(1));
             int minor = Integer.parseInt(m.group(2));
             int patch = m.group(3) == null ? 0 : Integer.parseInt(m.group(3));
-            // W tym projekcie każda kolejna wersja 1.x ma versionCode = x.
-            if (major == 1) return minor;
-            return major * 1000000 + minor * 1000 + patch;
+            return major * 10 + minor + patch;
         } catch (Exception ignored) { return -1; }
     }
 
