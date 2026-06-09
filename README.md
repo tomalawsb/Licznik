@@ -1,109 +1,50 @@
 # Licznik jazdy Android
 
-Wersja: **2.1 - 0906261534**
+Wersja: **2.2 - 0906261554**
 
-To jest natywna aplikacja Android do mierzenia prędkości, dystansu, średniej prędkości i historii jazdy.
+Natywna aplikacja Android do pomiaru jazdy rowerem albo samochodem.
 
-## Co robi aplikacja
+## Najważniejsze funkcje
 
-- ręczny tryb jazdy: **Rower / Samochód**,
-- aktualna prędkość GPS,
-- średnia prędkość z dokładnością do 3 miejsc po przecinku,
-- dystans,
-- czas jazdy,
-- prędkość maksymalna,
-- historia przejazdów,
-- statystyki,
-- pomiar GPS jako Foreground Service z powiadomieniem,
-- ustawienia aplikacji,
-- sprawdzanie aktualizacji z GitHub Releases,
-- tryb pełnoekranowy ukrywający paski systemowe Androida,
-- zegarek aplikacji w nagłówku pokazujący aktualną godzinę,
-- płynniejsze odświeżanie czasu jazdy niezależnie od częstotliwości punktów GPS,
-- skonsolidowany przycisk **Start / Pauza / Wznów**,
-- przycisk **Reset** działający również w trakcie jazdy,
-- usunięty kafelek punktów GPS z ekranu jazdy,
-- filtr odrzucający absurdalne skoki GPS i zawyżone maksymalne prędkości.
-
-## Działanie po zablokowaniu telefonu
-
-Pomiar działa przez natywną usługę Android `RideTrackingService` z typem:
-
-```xml
-android:foregroundServiceType="location"
-```
-
-Podczas pomiaru aplikacja pokazuje stałe powiadomienie. To jest wymagane przez Androida, żeby GPS mógł działać po zablokowaniu ekranu.
-
-Jeśli telefon mimo tego przerywa pomiar, wyłącz oszczędzanie baterii dla aplikacji **Licznik jazdy**.
+- pomiar GPS w tle przez usługę pierwszoplanową,
+- tryb ręczny: Rower / Samochód,
+- prędkość aktualna, średnia, dystans, czas i maksymalna prędkość,
+- historia zapisanych jazd,
+- normalne mapy OpenStreetMap przez osmdroid,
+- podgląd trasy na ekranie głównym i w historii,
+- po kliknięciu mapy otwiera się pełnoekranowy widok trasy,
+- pełnoekranowa mapa pozwala przesuwać, przybliżać i dopasować trasę.
 
 ## Budowanie APK
 
-Na GitHubie:
-
-1. Wejdź w **Actions**.
-2. Uruchom workflow **Build Android APK**.
-3. Po zakończeniu pobierz artifact **Licznik-release-apk**.
-
-Workflow buduje plik:
+Po wysłaniu projektu na GitHub wejdź w:
 
 ```text
-app-release.apk
+Actions → Build Android APK
 ```
 
-oraz publikuje go jako GitHub Release:
+Po zielonym buildzie pobierz artefakt:
 
 ```text
-Licznik-v1.7-0906260920.apk
+Licznik-release-apk
 ```
 
-## Aktualizacje aplikacji
+albo plik z sekcji Releases:
 
-Aplikacja może sprawdzać GitHub Releases i otworzyć najnowszy plik APK do pobrania.
-
-Android nie pozwala zwykłej aplikacji instalować aktualizacji całkowicie po cichu. Użytkownik musi potwierdzić instalację APK.
-
-## Ważne o podpisie APK
-
-Ta paczka zawiera stały klucz podpisu `licznik-release.jks`, żeby kolejne wersje mogły instalować się jako aktualizacja, a nie jako nowa aplikacja.
-
-Dla prywatnego projektu testowego to jest wygodne. Dla publicznej dystrybucji klucz podpisu powinien być trzymany poza repozytorium, najlepiej w GitHub Secrets albo w Google Play App Signing.
-
-
-
-## Poprawka builda 0906261003
-
-Dodano `gradle.properties` z ustawieniami AndroidX:
-
-```properties
-android.useAndroidX=true
-android.enableJetifier=true
+```text
+Licznik-v2.2-0906261554.apk
 ```
 
-Poprawia to błąd GitHub Actions związany z zależnościami AndroidX/Google Play Services przy budowaniu `assembleRelease`.
+## Wysyłka na GitHub
 
-## Zmiany 2.1 - 0906261534
-- Zmieniono silnik lokalizacji na Fused Location Provider.
-- Dodano stabilizację postoju bez blokowania realnej jazdy.
-- Prędkość jest brana najpierw z wiarygodnego pola speed GPS, a dopiero potem z odległości między punktami.
-- Usunięto zbyt agresywny filtr, który w wersji 1.7 potrafił stale pokazywać 0 km/h.
+W folderze projektu uruchom:
 
+```powershell
+.\upload_to_github.ps1
+```
 
-## 2.1 - 0906261534
-- Przebudowany wygląd pod mockup premium.
-- Historia jazdy jako czytelne karty z mapą bez nachodzących tekstów.
-- Spokojniejsza kolorystyka, bardziej profesjonalne przyciski i kafelki.
+Repozytorium:
 
-
-## Zmiany 2.1
-- Normalne mapy OpenStreetMap przez osmdroid zamiast sztucznego rysunku mapy.
-- Poprawiony zegarek w nagłówku.
-- Czytelniejsza historia jazdy bez nachodzących tekstów.
-- Mniej pstrokaty interfejs i spokojniejsze karty danych.
-
-
-## Zmiany 2.1 - 0906261534
-- Poprawiony wizualnie licznik prędkości.
-- Usunięty nienaturalny symbol nad prędkością.
-- Dodany mały centralny wskaźnik/igła i punkt końca łuku.
-- Bardziej profesjonalne kreski licznika i spokojniejszy wygląd zegara prędkości.
+```text
+https://github.com/tomalawsb/Licznik.git
+```

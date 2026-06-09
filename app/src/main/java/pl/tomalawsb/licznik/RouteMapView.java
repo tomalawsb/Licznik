@@ -9,6 +9,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -29,11 +30,16 @@ public class RouteMapView extends FrameLayout {
     private final TextView placeholder;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final List<GeoPoint> routePoints = new ArrayList<>();
+    private String lastPointsJson = "[]";
+    private boolean interactive = false;
+    private OnClickListener externalClickListener;
 
     public RouteMapView(Context context) {
         super(context);
         setClipToOutline(true);
         setBackgroundColor(Color.rgb(245, 248, 252));
+        setClickable(true);
+        setFocusable(false);
 
         Configuration.getInstance().setUserAgentValue(context.getPackageName());
         Configuration.getInstance().setOsmdroidBasePath(context.getCacheDir());
@@ -42,14 +48,17 @@ public class RouteMapView extends FrameLayout {
         mapView = new MapView(context);
         mapView.setTileSource(TileSourceFactory.MAPNIK);
         mapView.setTilesScaledToDpi(true);
-        mapView.setMultiTouchControls(false);
-        mapView.setBuiltInZoomControls(false);
-        mapView.setFlingEnabled(false);
         mapView.setMinZoomLevel(3.0);
         mapView.setMaxZoomLevel(20.0);
         mapView.getController().setZoom(14.0);
         mapView.getController().setCenter(new GeoPoint(52.0, 19.0));
-        mapView.setOnTouchListener((v, event) -> event.getAction() == MotionEvent.ACTION_MOVE);
+        mapView.setOnTouchListener((v, event) -> {
+            if (interactive) return false;
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                performClick();
+            }
+            return true;
+        });
         addView(mapView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
         placeholder = new TextView(context);
@@ -58,20 +67,79 @@ public class RouteMapView extends FrameLayout {
         placeholder.setTextSize(12);
         placeholder.setGravity(Gravity.CENTER);
         placeholder.setBackgroundColor(Color.argb(135, 255, 255, 255));
+        placeholder.setClickable(true);
+        placeholder.setOnClickListener(v -> performClick());
         addView(placeholder, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+        setInteractive(false);
+    }
+
+    @Override public void setOnClickListener(OnClickListener l) {
+        externalClickListener = l;
+        super.setOnClickListener(l);
+        if (placeholder != null) placeholder.setOnClickListener(v -> {
+            if (externalClickListener != null) externalClickListener.onClick(this);
+        });
+    }
+
+    @Override public boolean performClick() {
+        super.performClick();
+        if (externalClickListener != null) externalClickListener.onClick(this);
+        return true;
+    }
+
+    public void setInteractive(boolean enabled) {
+        interactive = enabled;
+        mapView.setMultiTouchControls(enabled);
+        mapView.setBuiltInZoomControls(enabled);
+        mapView.setFlingEnabled(enabled);
+        mapView.setClickable(enabled);
+        if (enabled) {
+            mapView.setOnTouchListener(null);
+        } else {
+            mapView.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_UP) performClick();
+                return true;
+            });
+        }
     }
 
     public void clear() {
+        lastPointsJson = "[]";
         routePoints.clear();
         mapView.getOverlays().clear();
         placeholder.setVisibility(VISIBLE);
         mapView.invalidate();
     }
 
+    public String getPointsJson() {
+        return lastPointsJson == null ? "[]" : lastPointsJson;
+    }
+
+    public boolean hasRoute() {
+        return routePoints.size() >= 2;
+    }
+
+    public void fitRoute() {
+        if (routePoints.size() < 2) return;
+        mapView.post(() -> {
+            try {
+                BoundingBox box = BoundingBox.fromGeoPoints(routePoints).increaseByScale(1.35f);
+                mapView.zoomToBoundingBox(box, true, dp(interactive ? 54 : 18));
+            } catch (Exception e) {
+                mapView.getController().setCenter(routePoints.get(routePoints.size() - 1));
+                mapView.getController().animateTo(routePoints.get(routePoints.size() - 1));
+                mapView.getController().setZoom(interactive ? 16.0 : 15.0);
+            }
+            mapView.invalidate();
+        });
+    }
+
     public void setPointsFromJson(String json) {
+        lastPointsJson = json == null ? "[]" : json;
         try {
             routePoints.clear();
-            JSONArray arr = new JSONArray(json == null ? "[]" : json);
+            JSONArray arr = new JSONArray(lastPointsJson);
             for (int i = 0; i < arr.length(); i++) {
                 JSONArray p = arr.getJSONArray(i);
                 routePoints.add(new GeoPoint(p.getDouble(0), p.getDouble(1)));
@@ -94,7 +162,7 @@ public class RouteMapView extends FrameLayout {
         Polyline shadow = new Polyline(mapView);
         shadow.setPoints(routePoints);
         shadow.getOutlinePaint().setColor(Color.WHITE);
-        shadow.getOutlinePaint().setStrokeWidth(dp(8));
+        shadow.getOutlinePaint().setStrokeWidth(dp(interactive ? 10 : 8));
         shadow.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
         shadow.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
         mapView.getOverlays().add(shadow);
@@ -102,24 +170,14 @@ public class RouteMapView extends FrameLayout {
         Polyline route = new Polyline(mapView);
         route.setPoints(routePoints);
         route.getOutlinePaint().setColor(Color.rgb(37, 99, 235));
-        route.getOutlinePaint().setStrokeWidth(dp(5));
+        route.getOutlinePaint().setStrokeWidth(dp(interactive ? 6 : 5));
         route.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
         route.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
         mapView.getOverlays().add(route);
 
         mapView.getOverlays().add(marker(routePoints.get(0), Color.rgb(15, 23, 42)));
         mapView.getOverlays().add(marker(routePoints.get(routePoints.size() - 1), Color.rgb(34, 197, 94)));
-
-        mapView.post(() -> {
-            try {
-                BoundingBox box = BoundingBox.fromGeoPoints(routePoints).increaseByScale(1.35f);
-                mapView.zoomToBoundingBox(box, false, dp(18));
-            } catch (Exception e) {
-                mapView.getController().setCenter(routePoints.get(routePoints.size() - 1));
-                mapView.getController().setZoom(15.0);
-            }
-            mapView.invalidate();
-        });
+        fitRoute();
     }
 
     private Marker marker(GeoPoint point, int color) {
@@ -132,7 +190,7 @@ public class RouteMapView extends FrameLayout {
     }
 
     private Drawable circleMarker(int color) {
-        int size = dp(26);
+        int size = dp(interactive ? 30 : 26);
         Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         float r = size / 2f;

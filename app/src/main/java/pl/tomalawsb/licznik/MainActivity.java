@@ -2,6 +2,7 @@ package pl.tomalawsb.licznik;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -39,9 +40,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "2.1 - 0906261534";
-    public static final String CURRENT_RELEASE_TAG = "v2.1-0906261534";
-    public static final int CURRENT_VERSION_CODE = 20;
+    public static final String VERSION_NAME = "2.2 - 0906261554";
+    public static final String CURRENT_RELEASE_TAG = "v2.2-0906261554";
+    public static final int CURRENT_VERSION_CODE = 22;
     private static final String GITHUB_RELEASES = "https://github.com/tomalawsb/Licznik/releases/latest";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -73,6 +74,7 @@ public class MainActivity extends android.app.Activity {
     private long lastElapsedMs = 0;
     private long elapsedBaseMs = 0;
     private long elapsedSyncRealtime = 0;
+    private String lastPointsJson = "[]";
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable clockUiTicker = new Runnable() {
@@ -105,6 +107,7 @@ public class MainActivity extends android.app.Activity {
             int points = intent.getIntExtra("points", 0);
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
+            if (pointsJson != null) lastPointsJson = pointsJson;
 
             if (gaugeView != null) gaugeView.setSpeed((float) speed);
             if (avgText != null) avgText.setText(String.format(Locale.US, "%.3f km/h", avg));
@@ -367,6 +370,8 @@ public class MainActivity extends android.app.Activity {
         mapHeader.addView(accuracyText);
         mapCard.addView(mapHeader, new LinearLayout.LayoutParams(-1, dp(28)));
         routeView = new RouteMapView(this);
+        routeView.setOnClickListener(v -> showRouteMapDialog("Aktualna trasa", lastPointsJson,
+                String.format(Locale.US, "Dystans %s  •  czas %s", compactStatText(distanceText), formatDuration(lastElapsedMs))));
         mapCard.addView(routeView, new LinearLayout.LayoutParams(-1, dp(104)));
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, dp(152));
         mapLp.topMargin = dp(12);
@@ -532,8 +537,12 @@ public class MainActivity extends android.app.Activity {
         metrics.setGravity(Gravity.CENTER_VERTICAL);
         card.addView(metrics, new LinearLayout.LayoutParams(-1, dp(28)));
 
+        String pointsForMap = o.optString("pointsJson", "[]");
+        String mapSummary = String.format(Locale.US, "%s  •  %.2f km  •  %s  •  śr. %.3f km/h  •  maks. %.1f km/h",
+                mode, o.optDouble("distanceKm", 0), o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0));
         RouteMapView rv = new RouteMapView(this);
-        rv.setPointsFromJson(o.optString("pointsJson", "[]"));
+        rv.setPointsFromJson(pointsForMap);
+        rv.setOnClickListener(v -> showRouteMapDialog("Szczegóły trasy", pointsForMap, mapSummary));
         LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(108));
         rvLp.topMargin = dp(8);
         card.addView(rv, rvLp);
@@ -541,6 +550,77 @@ public class MainActivity extends android.app.Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(226));
         lp.topMargin = dp(10);
         contentBox.addView(card, lp);
+    }
+
+    private void showRouteMapDialog(String title, String pointsJson, String summary) {
+        try {
+            JSONArray arr = new JSONArray(pointsJson == null ? "[]" : pointsJson);
+            if (arr.length() < 2) {
+                Toast.makeText(this, "Brak trasy do pokazania na mapie.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Nie udało się otworzyć trasy.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Dialog d = new Dialog(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(BG);
+        root.setPadding(dp(14), dp(12), dp(14), dp(12));
+        d.setContentView(root);
+
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView titleView = text(title, 19, NAVY, true);
+        top.addView(titleView, new LinearLayout.LayoutParams(0, dp(42), 1));
+        TextView fitBtnTop = pill("Dopasuj", BLUE, Color.WHITE, 13, true);
+        top.addView(fitBtnTop, new LinearLayout.LayoutParams(dp(86), dp(36)));
+        TextView closeBtn = circleText("×", 36, Color.WHITE, NAVY, 22);
+        LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(dp(38), dp(38));
+        closeLp.leftMargin = dp(8);
+        top.addView(closeBtn, closeLp);
+        root.addView(top, new LinearLayout.LayoutParams(-1, dp(46)));
+
+        TextView hint = text(summary == null ? "Przesuwaj mapę palcem, przybliżaj dwoma palcami." : summary + "\nPrzesuwaj mapę palcem, przybliżaj dwoma palcami.", 12, MUTED, false);
+        hint.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(hint, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        RouteMapView fullMap = new RouteMapView(this);
+        fullMap.setInteractive(true);
+        fullMap.setPointsFromJson(pointsJson);
+        root.addView(fullMap, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER);
+        bottom.setPadding(0, dp(10), 0, 0);
+        TextView fitBtn = settingsButton("Dopasuj trasę", BLUE, v -> fullMap.fitRoute());
+        TextView closeBottom = settingsButton("Zamknij", Color.rgb(71, 85, 105), v -> d.dismiss());
+        LinearLayout.LayoutParams b1 = new LinearLayout.LayoutParams(0, dp(46), 1);
+        b1.setMargins(0, 0, dp(6), 0);
+        LinearLayout.LayoutParams b2 = new LinearLayout.LayoutParams(0, dp(46), 1);
+        b2.setMargins(dp(6), 0, 0, 0);
+        bottom.addView(fitBtn, b1);
+        bottom.addView(closeBottom, b2);
+        root.addView(bottom, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        closeBtn.setOnClickListener(v -> d.dismiss());
+        fitBtnTop.setOnClickListener(v -> fullMap.fitRoute());
+        d.setOnShowListener(x -> {
+            Window win = d.getWindow();
+            if (win != null) {
+                win.setLayout(-1, -1);
+                win.setBackgroundDrawableResource(android.R.color.transparent);
+            }
+            fullMap.fitRoute();
+        });
+        d.show();
+    }
+
+    private String compactStatText(TextView t) {
+        if (t == null || t.getText() == null) return "--";
+        return t.getText().toString().replace("\n", " ").trim();
     }
 
     private TextView metricItem(String prefix, String value) {
