@@ -1,0 +1,6 @@
+POPRAWKA PACZKI
+- Dodano aktualizację .github/workflows/android-build.yml.
+- Release ma teraz tag v2.7-1406262027.
+- APK ma nazwę Licznik-v2.7-1406262027.apk.
+- Dodano kontrolę, która zatrzyma skrypt, jeśli gdziekolwiek pozostanie wersja 2.6.
+- Dodano automatyczną kopię bezpieczeństwa.

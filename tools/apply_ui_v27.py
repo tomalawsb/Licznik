@@ -23,7 +23,7 @@ def replace_method(text, signature, new_method):
         if in_string:
             if escaped:
                 escaped = False
-            elif ch == '\\':
+            elif ch == '\\\\':
                 escaped = True
             elif ch == '"':
                 in_string = False
@@ -337,3 +337,78 @@ marker = f'## Zmiany {VERSION}'
 if marker not in readme:
     readme += f'''\n\n{marker}\n- Przebudowano kartę prędkości: prędkość jest wyżej, a średnia i maksymalna są większe.\n- Dodano kompas z rzeczywistą przezroczystością PNG, wskazujący północ.\n- Usunięto Ostatnie jazdy z ekranu głównego.\n- Powiększono mapę i obniżono panel sterowania.\n- Powiększono ikony przycisków jazdy, Stop i Reset.\n- Po otwarciu aktualnej mapy ostatnia pozycja użytkownika jest wyśrodkowana.\n'''
 readme_path.write_text(readme, encoding='utf-8')
+
+# Aktualizacja mechanizmu publikowania wersji w GitHub Releases.
+workflow_path = Path('.github/workflows/android-build.yml')
+workflow_path.parent.mkdir(parents=True, exist_ok=True)
+workflow = """name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v4
+
+      - name: Ustaw Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ustaw Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Zbuduj APK release
+        run: gradle assembleRelease
+
+      - name: Udostepnij APK jako artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Licznik-v2.7-1406262027-apk
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Opublikuj GitHub Release z APK
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v2.7-1406262027"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          OUT="Licznik-v2.7-1406262027.apk"
+          cp "$APK" "$OUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$OUT" --clobber
+          else
+            gh release create "$TAG" "$OUT" \
+              --title "Licznik jazdy 2.7 - 1406262027" \
+              --notes "Nowy interfejs, kompas, większa mapa, centrowanie lokalizacji oraz poprawki trasy i średniej prędkości."
+          fi
+"""
+workflow_path.write_text(workflow, encoding='utf-8')
+
+# Kontrola końcowa — skrypt nie zgłosi sukcesu przy pozostawieniu wersji 2.6.
+checks = {
+    main_path: ['VERSION_NAME = "2.7 - 1406262027"', 'CURRENT_RELEASE_TAG = "v2.7-1406262027"', 'CURRENT_VERSION_CODE = 20700'],
+    gradle_path: ['versionCode 20700', "versionName '2.7 - 1406262027'"],
+    workflow_path: ['TAG="v2.7-1406262027"', 'OUT="Licznik-v2.7-1406262027.apk"', 'Licznik jazdy 2.7 - 1406262027']
+}
+for path, required in checks.items():
+    data = path.read_text(encoding='utf-8')
+    missing = [item for item in required if item not in data]
+    if missing:
+        raise SystemExit(f'Błąd kontroli pliku {path}: brak {missing}')
+
+print('OK: kod aplikacji ustawiony na 2.7.')
+print('OK: app/build.gradle ustawiony na 2.7 / versionCode 20700.')
+print('OK: android-build.yml publikuje Release v2.7-1406262027.')
