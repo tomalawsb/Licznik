@@ -69,6 +69,10 @@ public class RideTrackingService extends Service {
     private int movingConfidence = 0;
     private int stationaryConfidence = 0;
     private long lastNotificationUpdate = 0;
+    private long lastAverageCalculation = 0;
+    private double displayedAverageSpeedKmh = 0;
+    private boolean pointsChanged = true;
+    private String cachedPointsJson = "[]";
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private final JSONArray points = new JSONArray();
@@ -117,6 +121,7 @@ public class RideTrackingService extends Service {
         else if (ACTION_RESUME.equals(action)) resumeRide();
         else if (ACTION_RESET.equals(action)) resetRide();
         else if (ACTION_SNAPSHOT.equals(action)) {
+            pointsChanged = true;
             sendUpdate();
             if (!running) stopSelf();
         }
@@ -212,7 +217,11 @@ public class RideTrackingService extends Service {
         movingConfidence = 0;
         stationaryConfidence = 0;
         lastNotificationUpdate = 0;
+        lastAverageCalculation = 0;
+        displayedAverageSpeedKmh = 0;
         while (points.length() > 0) points.remove(0);
+        cachedPointsJson = "[]";
+        pointsChanged = true;
     }
 
     private void startAsForeground() {
@@ -383,7 +392,7 @@ public class RideTrackingService extends Service {
             p.put(loc.getLatitude());
             p.put(loc.getLongitude());
             points.put(p);
-            while (points.length() > 800) points.remove(0);
+            pointsChanged = true;
         } catch (Exception ignored) {}
     }
 
@@ -392,10 +401,19 @@ public class RideTrackingService extends Service {
         return elapsedBeforePause + (paused ? 0 : (SystemClock.elapsedRealtime() - startElapsed));
     }
 
-    private double getAverageSpeed() {
+    private double calculateAverageSpeed() {
         long elapsed = getElapsedMs();
         if (elapsed <= 0) return 0;
         return (distanceMeters / 1000.0) / (elapsed / 3600000.0);
+    }
+
+    private double getAverageSpeed() {
+        long now = SystemClock.elapsedRealtime();
+        if (lastAverageCalculation == 0 || now - lastAverageCalculation >= 1000) {
+            displayedAverageSpeedKmh = calculateAverageSpeed();
+            lastAverageCalculation = now;
+        }
+        return displayedAverageSpeedKmh;
     }
 
     private void sendUpdate() {
@@ -415,7 +433,11 @@ public class RideTrackingService extends Service {
         i.putExtra("elapsed", getElapsedMs());
         i.putExtra("points", points.length());
         i.putExtra("accuracy", (double) lastAccuracy);
-        i.putExtra("pointsJson", points.toString());
+        if (pointsChanged) {
+            cachedPointsJson = points.toString();
+            pointsChanged = false;
+            i.putExtra("pointsJson", cachedPointsJson);
+        }
         i.putExtra(EXTRA_STOPPED, stopped);
         i.putExtra(EXTRA_HISTORY_SAVED, historySaved);
         if (message != null) i.putExtra(EXTRA_MESSAGE, message);
@@ -432,7 +454,7 @@ public class RideTrackingService extends Service {
             o.put("distanceKm", distanceMeters / 1000.0);
             o.put("elapsed", MainActivity.formatDuration(getElapsedMs()));
             o.put("elapsedMs", getElapsedMs());
-            o.put("avg", getAverageSpeed());
+            o.put("avg", calculateAverageSpeed());
             o.put("max", maxSpeedKmh);
             o.put("pointsJson", points.toString());
             history.put(o);

@@ -42,9 +42,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "2.5 - 0906261705";
-    public static final String CURRENT_RELEASE_TAG = "v2.5-0906261705";
-    public static final int CURRENT_VERSION_CODE = 20500;
+    public static final String VERSION_NAME = "2.6 - 1406261822";
+    public static final String CURRENT_RELEASE_TAG = "v2.6-1406261822";
+    public static final int CURRENT_VERSION_CODE = 20600;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -66,6 +66,7 @@ public class MainActivity extends android.app.Activity {
     private TextView navRide, navHistory, navProgress, navProfile;
     private TextView speedValueText, speedSummaryText, distanceText, timeText, elevationText, caloriesText, paceText;
     private TextView primaryActionIcon, primaryActionLabel;
+    private TextView headerModeIcon, speedHeroWatermark;
     private LinearLayout primaryActionButton;
     private RouteMapView routeView;
 
@@ -99,7 +100,10 @@ public class MainActivity extends android.app.Activity {
             running = intent.getBooleanExtra("running", false);
             paused = intent.getBooleanExtra("paused", false);
             String incomingMode = intent.getStringExtra("mode");
-            if (incomingMode != null) selectedMode = incomingMode;
+            if (incomingMode != null && !incomingMode.equals(selectedMode)) {
+                selectedMode = incomingMode;
+                updateModeVisuals();
+            }
 
             double speed = intent.getDoubleExtra("speed", 0);
             double avg = intent.getDoubleExtra("avg", 0);
@@ -200,10 +204,10 @@ public class MainActivity extends android.app.Activity {
         header.setPadding(dp(18), dp(10), dp(18), dp(5));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(84)));
 
-        TextView bikeIcon = circleText("🚲", 46, Color.rgb(232, 247, 235), GREEN_DARK, 21);
-        bikeIcon.setElevation(dp(2));
-        bikeIcon.setOnClickListener(v -> chooseModeDialog());
-        header.addView(bikeIcon);
+        headerModeIcon = circleText(modeEmoji(), 46, Color.rgb(232, 247, 235), GREEN_DARK, 21);
+        headerModeIcon.setElevation(dp(2));
+        headerModeIcon.setOnClickListener(v -> chooseModeDialog());
+        header.addView(headerModeIcon);
 
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
@@ -242,7 +246,7 @@ public class MainActivity extends android.app.Activity {
         nav.setElevation(dp(4));
         root.addView(nav, new LinearLayout.LayoutParams(-1, dp(70)));
 
-        navRide = navItem("🚲\nJazda", true);
+        navRide = navItem(modeEmoji() + "\nJazda", true);
         navHistory = navItem("↺\nHistoria", false);
         navProgress = navItem("⌁\nPostępy", false);
         navProfile = navItem("♙\nProfil", false);
@@ -279,11 +283,11 @@ public class MainActivity extends android.app.Activity {
         hero.setPadding(dp(18), dp(14), dp(18), dp(14));
         hero.setElevation(dp(2));
 
-        TextView watermark = text("🚲", 120, Color.WHITE, true);
-        watermark.setAlpha(0.08f);
-        watermark.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        speedHeroWatermark = text(modeEmoji(), 120, Color.WHITE, true);
+        speedHeroWatermark.setAlpha(0.08f);
+        speedHeroWatermark.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         FrameLayout.LayoutParams wmLp = new FrameLayout.LayoutParams(-1, -1);
-        hero.addView(watermark, wmLp);
+        hero.addView(speedHeroWatermark, wmLp);
 
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -603,6 +607,7 @@ public class MainActivity extends android.app.Activity {
                 .setSingleChoiceItems(modes, checked, (dialog, which) -> {
                     selectedMode = modes[which];
                     prefs().edit().putString("last_mode", selectedMode).apply();
+                    updateModeVisuals();
                     Toast.makeText(this, "Wybrano: " + selectedMode, Toast.LENGTH_SHORT).show();
                     dialog.dismiss();
                 })
@@ -963,6 +968,17 @@ public class MainActivity extends android.app.Activity {
         TextView t = text(label, 12, active ? GREEN_DARK : MUTED, true);
         t.setGravity(Gravity.CENTER);
         return t;
+    }
+
+    private String modeEmoji() {
+        return "Samochód".equals(selectedMode) ? "🚗" : "🚲";
+    }
+
+    private void updateModeVisuals() {
+        String icon = modeEmoji();
+        if (headerModeIcon != null) headerModeIcon.setText(icon);
+        if (speedHeroWatermark != null) speedHeroWatermark.setText(icon);
+        if (navRide != null) navRide.setText(icon + "\nJazda");
     }
 
     private void updateNav() {

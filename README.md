@@ -1,6 +1,6 @@
 # Licznik jazdy Android
 
-Wersja: **2.5 - 0906261705**
+Wersja: **2.6 - 1406261822**
 
 Przebudowany interfejs według przesłanego wzoru:
 - zielona karta aktualnej prędkości,
@@ -25,3 +25,9 @@ Aplikacja nadal używa natywnej usługi GPS w tle.
 - Status GPS pokazuje jakość sygnału.
 - Usunięto `usesCleartextTraffic=true`.
 - Usunięto martwe pliki `SpeedGaugeView.java` i `RouteView.java`.
+
+
+## Zmiany 2.6 - 1406261822
+- Historia zachowuje trasę od rzeczywistego punktu startu; usunięto limit przesuwający początek po 800 punktach GPS.
+- Ikona w lewym górnym rogu zmienia się natychmiast między rowerem i samochodem.
+- Średnia prędkość jest odświeżana raz na sekundę.
