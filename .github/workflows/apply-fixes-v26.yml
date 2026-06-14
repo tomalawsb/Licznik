@@ -198,3 +198,5 @@ jobs:
           else
             gh release create "$TAG" "$OUT" --title "Licznik jazdy 2.6 - 1406261822" --notes "Poprawiono pełną historię trasy od punktu startu, dynamiczną ikonę roweru/samochodu oraz odświeżanie średniej prędkości raz na sekundę."
           fi
+
+# trigger second push
