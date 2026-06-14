@@ -1,0 +1,3 @@
+y przycisków.\n4. Stały panel sterowania nad zakładkami.\n5. Większa mapa.\n6. Bezpieczny workflow aktualizacji.\n''', encoding='utf-8')
+
+print('OK')
