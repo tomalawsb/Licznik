@@ -117,21 +117,34 @@ public class RouteMapView extends FrameLayout {
     }
 
     public boolean hasRoute() {
-        return routePoints.size() >= 2;
+        return !routePoints.isEmpty();
     }
 
     public void fitRoute() {
-        if (routePoints.size() < 2) return;
+        if (routePoints.isEmpty()) return;
+        if (routePoints.size() == 1) {
+  centerOnLastPoint(interactive ? 17.0 : 15.0);
+  return;
+        }
         mapView.post(() -> {
-            try {
-                BoundingBox box = BoundingBox.fromGeoPoints(routePoints).increaseByScale(1.35f);
-                mapView.zoomToBoundingBox(box, true, dp(interactive ? 54 : 18));
-            } catch (Exception e) {
-                mapView.getController().setCenter(routePoints.get(routePoints.size() - 1));
-                mapView.getController().animateTo(routePoints.get(routePoints.size() - 1));
-                mapView.getController().setZoom(interactive ? 16.0 : 15.0);
-            }
-            mapView.invalidate();
+  try {
+      BoundingBox box = BoundingBox.fromGeoPoints(routePoints).increaseByScale(1.35f);
+      mapView.zoomToBoundingBox(box, true, dp(interactive ? 54 : 18));
+  } catch (Exception e) {
+      centerOnLastPoint(interactive ? 17.0 : 15.0);
+  }
+  mapView.invalidate();
+        });
+    }
+
+    public void centerOnLastPoint(double zoom) {
+        if (routePoints.isEmpty()) return;
+        GeoPoint last = routePoints.get(routePoints.size() - 1);
+        mapView.post(() -> {
+  mapView.getController().setCenter(last);
+  mapView.getController().animateTo(last);
+  mapView.getController().setZoom(zoom);
+  mapView.invalidate();
         });
     }
 
@@ -152,30 +165,32 @@ public class RouteMapView extends FrameLayout {
 
     private void redrawRoute() {
         mapView.getOverlays().clear();
-        if (routePoints.size() < 2) {
-            placeholder.setVisibility(VISIBLE);
-            mapView.invalidate();
-            return;
+        if (routePoints.isEmpty()) {
+  placeholder.setVisibility(VISIBLE);
+  mapView.invalidate();
+  return;
         }
         placeholder.setVisibility(GONE);
 
-        Polyline shadow = new Polyline(mapView);
-        shadow.setPoints(routePoints);
-        shadow.getOutlinePaint().setColor(Color.WHITE);
-        shadow.getOutlinePaint().setStrokeWidth(dp(interactive ? 10 : 8));
-        shadow.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
-        shadow.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
-        mapView.getOverlays().add(shadow);
+        if (routePoints.size() >= 2) {
+  Polyline shadow = new Polyline(mapView);
+  shadow.setPoints(routePoints);
+  shadow.getOutlinePaint().setColor(Color.WHITE);
+  shadow.getOutlinePaint().setStrokeWidth(dp(interactive ? 10 : 8));
+  shadow.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
+  shadow.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
+  mapView.getOverlays().add(shadow);
 
-        Polyline route = new Polyline(mapView);
-        route.setPoints(routePoints);
-        route.getOutlinePaint().setColor(Color.rgb(37, 99, 235));
-        route.getOutlinePaint().setStrokeWidth(dp(interactive ? 6 : 5));
-        route.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
-        route.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
-        mapView.getOverlays().add(route);
+  Polyline route = new Polyline(mapView);
+  route.setPoints(routePoints);
+  route.getOutlinePaint().setColor(Color.rgb(37, 99, 235));
+  route.getOutlinePaint().setStrokeWidth(dp(interactive ? 6 : 5));
+  route.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
+  route.getOutlinePaint().setStrokeJoin(Paint.Join.ROUND);
+  mapView.getOverlays().add(route);
 
-        mapView.getOverlays().add(marker(routePoints.get(0), Color.rgb(15, 23, 42)));
+  mapView.getOverlays().add(marker(routePoints.get(0), Color.rgb(15, 23, 42)));
+        }
         mapView.getOverlays().add(marker(routePoints.get(routePoints.size() - 1), Color.rgb(34, 197, 94)));
         fitRoute();
     }
