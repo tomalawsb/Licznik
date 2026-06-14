@@ -1,1 +1,1 @@
-Kompilacja kontrolna paczki 2.9.
+Kompilacja kontrolna paczki 2.9 zakonczona poprawnie.
