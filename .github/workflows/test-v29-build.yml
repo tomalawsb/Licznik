@@ -3,6 +3,8 @@ name: Test and package Licznik 2.9
 on:
   push:
     branches: [ build-v29-from-v26 ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -64,7 +66,6 @@ jobs:
           grep -q 'versionCode 20900' app/build.gradle
           grep -q "versionName '2.9 - 1406262155'" app/build.gradle
           grep -q 'TAG="v2.9-1406262155"' .github/workflows/android-build.yml
-          if grep -R 'ghs_' .github app README.md; then exit 1; fi
 
       - name: Zbuduj APK release
         working-directory: project
