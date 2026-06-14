@@ -1,8 +1,9 @@
 name: Test and package Licznik 2.9
 
 on:
-  pull_request:
-    branches: [ main ]
+  push:
+    branches: [ build-v29-from-v26 ]
+  workflow_dispatch:
 
 permissions:
   contents: read
