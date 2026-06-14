@@ -2,9 +2,6 @@ name: Apply Licznik v2.6 fixes
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/apply-fixes-v26.yml'
 
 permissions:
   contents: write
@@ -16,6 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Apply source fixes
@@ -25,7 +23,6 @@ jobs:
           from pathlib import Path
 
           VERSION = "2.6 - 1406261822"
-          TAG = "v2.6-1406261822"
           CODE = "20600"
 
           def replace_required(text, old, new, label):
@@ -36,7 +33,7 @@ jobs:
           main_path = Path("app/src/main/java/pl/tomalawsb/licznik/MainActivity.java")
           main = main_path.read_text(encoding="utf-8")
           main = main.replace('public static final String VERSION_NAME = "2.5 - 0906261705";', f'public static final String VERSION_NAME = "{VERSION}";')
-          main = main.replace('public static final String CURRENT_RELEASE_TAG = "v2.5-0906261705";', f'public static final String CURRENT_RELEASE_TAG = "{TAG}";')
+          main = main.replace('public static final String CURRENT_RELEASE_TAG = "v2.5-0906261705";', 'public static final String CURRENT_RELEASE_TAG = "v2.6-1406261822";')
           main = main.replace('public static final int CURRENT_VERSION_CODE = 20500;', f'public static final int CURRENT_VERSION_CODE = {CODE};')
           main = replace_required(main, "    private TextView primaryActionIcon, primaryActionLabel;\n    private LinearLayout primaryActionButton;\n    private RouteMapView routeView;", "    private TextView primaryActionIcon, primaryActionLabel;\n    private TextView headerModeIcon, speedHeroWatermark;\n    private LinearLayout primaryActionButton;\n    private RouteMapView routeView;", "pola ikon trybu")
           main = replace_required(main, "            String incomingMode = intent.getStringExtra(\"mode\");\n            if (incomingMode != null) selectedMode = incomingMode;", "            String incomingMode = intent.getStringExtra(\"mode\");\n            if (incomingMode != null && !incomingMode.equals(selectedMode)) {\n                selectedMode = incomingMode;\n                updateModeVisuals();\n            }", "aktualizacja trybu z serwisu")
@@ -61,17 +58,11 @@ jobs:
           gradle_path = Path("app/build.gradle")
           gradle = gradle_path.read_text(encoding="utf-8").replace("versionCode 20500", f"versionCode {CODE}").replace("versionName '2.5 - 0906261705'", f"versionName '{VERSION}'")
           gradle_path.write_text(gradle, encoding="utf-8")
+
           readme_path = Path("README.md")
           readme = readme_path.read_text(encoding="utf-8").replace("Wersja: **2.5 - 0906261705**", f"Wersja: **{VERSION}**")
-          readme += f"\n\n## Zmiany {VERSION}\n- Historia zachowuje trasę od rzeczywistego punktu startu; usunięto limit przesuwający początek po 800 punktach GPS.\n- Pełne dane trasy są przesyłane do interfejsu tylko po dodaniu nowego punktu, aby ograniczyć obciążenie.\n- Ikona w lewym górnym rogu zmienia się natychmiast między rowerem i samochodem.\n- Ikona trybu jest również zgodna na karcie prędkości i w dolnym menu.\n- Średnia prędkość jest odświeżana raz na sekundę.\n"
+          readme += f"\n\n## Zmiany {VERSION}\n- Historia zachowuje trasę od rzeczywistego punktu startu; usunięto limit przesuwający początek po 800 punktach GPS.\n- Ikona w lewym górnym rogu zmienia się natychmiast między rowerem i samochodem.\n- Średnia prędkość jest odświeżana raz na sekundę.\n"
           readme_path.write_text(readme, encoding="utf-8")
-          for pattern in (".github/workflows/*.yml", ".github/workflows/*.yaml"):
-              for path in Path(".").glob(pattern):
-                  if path.name == "apply-fixes-v26.yml":
-                      continue
-                  text = path.read_text(encoding="utf-8").replace("2.5 - 0906261705", VERSION).replace("v2.5-0906261705", TAG)
-                  path.write_text(text, encoding="utf-8")
-          Path(".github/workflows/apply-fixes-v26.yml").unlink()
           PY
 
       - name: Commit fixes
@@ -79,9 +70,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          git add app/src/main/java/pl/tomalawsb/licznik/RideTrackingService.java
+          git add app/build.gradle README.md
           git commit -m "Licznik Android v2.6 - 1406261822 poprawki trasy, ikon i średniej"
-          git push origin main
+          git push origin HEAD:main
 
       - name: Build release APK
         shell: bash
@@ -103,5 +96,3 @@ jobs:
           else
             gh release create "$TAG" "$OUT" --title "Licznik jazdy 2.6 - 1406261822" --notes "Poprawiono pełną historię trasy od punktu startu, dynamiczną ikonę roweru/samochodu oraz odświeżanie średniej prędkości raz na sekundę."
           fi
-
-# trigger PR merge
