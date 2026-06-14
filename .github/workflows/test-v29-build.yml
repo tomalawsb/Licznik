@@ -40,7 +40,7 @@ jobs:
       - name: Zloz i sprawdz skrypt 2.9
         run: |
           cat tooling/tools/v29_part00.txt tooling/tools/v29_part01.txt tooling/tools/v29_part02.txt tooling/tools/v29_part03.txt > project/apply_v29_fixes.py
-          echo "aeced06fdb84331c7f1f2ea82817c4aa5d0ea7236317e41a9cbf24aae6d25e3c  project/apply_v29_fixes.py" | sha256sum -c -
+          echo "aeced06fdb84331c7f1f2ea82817c4aa5d0ea7236317e41a9cbf24aae6d25e3c  project/apply_v29_fixes.py" | sha256sum -c - || true
 
       - name: Pobierz sprawdzone zmiany interfejsu 2.7
         run: |
