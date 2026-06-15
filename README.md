@@ -1,42 +1,22 @@
-# Licznik jazdy Android
+# Licznik jazdy 3.0
 
-Wersja: **2.7 - 1406262027**
+Wersja: **3.0 - 1506260712**
 
-Przebudowany interfejs według przesłanego wzoru:
-- zielona karta aktualnej prędkości,
-- dwa duże kafelki: dystans i czas,
-- karta GPS z mapą OSM,
-- wzniesienie / kalorie / tempo,
-- przycisk Rozpocznij jazdę + Stop + Reset,
-- sekcja Ostatnie jazdy,
-- dolne menu: Jazda, Historia, Postępy, Profil.
+Uruchom jeden plik:
 
-Aplikacja nadal używa natywnej usługi GPS w tle.
+```powershell
+.\URUCHOM_WSZYSTKO.ps1
+```
 
+Skrypt automatycznie:
 
-## Zmiany 2.5 - 0906261705
-- Poprawiono reset licznika bez niepotrzebnego uruchamiania serwisu.
-- Zapytanie o snapshot nie zostawia nieaktywnego serwisu w tle.
-- Komunikat po Stop zależy od faktycznego wyniku zapisu historii.
-- Poprawiono porównywanie wersji aktualizacji.
-- Poprawiono obsługę zbyt gęstych odczytów GPS.
-- W trybie samochodu kalorie pokazują `--`.
-- Poprawiono wysokość listy ostatnich jazd.
-- Status GPS pokazuje jakość sygnału.
-- Usunięto `usesCleartextTraffic=true`.
-- Usunięto martwe pliki `SpeedGaugeView.java` i `RouteView.java`.
+1. sprawdza Git i Python,
+2. instaluje wymagane biblioteki Python,
+3. buduje, podpisuje i waliduje APK,
+4. tworzy kompletna paczke ZIP,
+5. pobiera aktualne repozytorium,
+6. kopiuje pliki i tworzy commit,
+7. wykonuje `git push`, korzystajac z zapisanych danych Git Credential Manager,
+8. czeka na automatyczna publikacje APK przez GitHub Actions.
 
-
-## Zmiany 2.6 - 1406261822
-- Historia zachowuje trasę od rzeczywistego punktu startu; usunięto limit przesuwający początek po 800 punktach GPS.
-- Ikona w lewym górnym rogu zmienia się natychmiast między rowerem i samochodem.
-- Średnia prędkość jest odświeżana raz na sekundę.
-
-
-## Zmiany 2.7 - 1406262027
-- Przebudowano kartę prędkości: prędkość jest wyżej, a średnia i maksymalna są większe.
-- Dodano kompas z rzeczywistą przezroczystością PNG, wskazujący północ.
-- Usunięto Ostatnie jazdy z ekranu głównego.
-- Powiększono mapę i obniżono panel sterowania.
-- Powiększono ikony przycisków jazdy, Stop i Reset.
-- Po otwarciu aktualnej mapy ostatnia pozycja użytkownika jest wyśrodkowana.
+Skrypt nie uzywa lokalnego GitHub CLI, nie otwiera logowania w przegladarce i nie zadaje pytan.

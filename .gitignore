@@ -1,7 +1,8 @@
-.gradle/
-build/
-app/build/
-.idea/
-*.iml
-local.properties
-.DS_Store
+__pycache__/
+*.pyc
+output/*-unsigned.apk
+*.tmp
+backup_*/
+
+.tools/
+signing/
