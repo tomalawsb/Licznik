@@ -1,22 +1,26 @@
-# Licznik jazdy 3.0
+# Licznik jazdy 3.1
 
-Wersja: **3.0 - 1506260712**
+Wersja: **3.1 - 1606260712**  
+`versionCode`: **30100**
 
-Uruchom jeden plik:
+## Gotowy plik do instalacji
 
-```powershell
-.\URUCHOM_WSZYSTKO.ps1
-```
+`Licznik-v3.1-1606260712.apk`
 
-Skrypt automatycznie:
+APK został utworzony wyłącznie z plików znajdujących się w przekazanej paczce. Nie pobierano kodu ani APK z GitHuba.
 
-1. sprawdza Git i Python,
-2. instaluje wymagane biblioteki Python,
-3. buduje, podpisuje i waliduje APK,
-4. tworzy kompletna paczke ZIP,
-5. pobiera aktualne repozytorium,
-6. kopiuje pliki i tworzy commit,
-7. wykonuje `git push`, korzystajac z zapisanych danych Git Credential Manager,
-8. czeka na automatyczna publikacje APK przez GitHub Actions.
+## Kontrola aktualizacji z wersji 2.9
 
-Skrypt nie uzywa lokalnego GitHub CLI, nie otwiera logowania w przegladarce i nie zadaje pytan.
+- pakiet: `pl.tomalawsb.licznik`,
+- wersja bazowa: `20900`,
+- wersja nowa: `30100`,
+- certyfikat podpisu identyczny z dołączonym APK 2.9,
+- podpis APK Signature Scheme v2 sprawdzony kryptograficznie,
+- integralność ZIP i CRC sprawdzona.
+
+Pełny wynik znajduje się w `VALIDATION_RESULTS.txt`.
+
+## Skrypty
+
+- `BUDUJ_TYLKO_LOKALNIE.ps1` — buduje i sprawdza APK bez GitHuba.
+- `URUCHOM_WSZYSTKO.ps1` — zachowany skrypt publikacyjny z otrzymanej paczki; łączy się z GitHubem dopiero po jego ręcznym uruchomieniu przez użytkownika.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tworzy wersję Licznik 3.0 przez bezpieczną modyfikację bazowego APK 2.9.
+"""Tworzy wersję Licznik 3.1 przez bezpieczną modyfikację bazowego APK 2.9.
 
 Zmiany dotyczą wyłącznie wymiarów interfejsu oraz numeru wersji.
 Logika GPS, kompasu, trybów jazdy, historii i mapy pozostaje z APK 2.9.
@@ -19,11 +19,11 @@ from pathlib import Path
 from androguard.core.dex import DEX
 
 OLD_VERSION_NAME = "2.9 - 1406262155"
-NEW_VERSION_NAME = "3.0 - 1506260712"
+NEW_VERSION_NAME = "3.1 - 1606260712"
 OLD_RELEASE_TAG = "v2.9-1406262155"
-NEW_RELEASE_TAG = "v3.0-1506260712"
+NEW_RELEASE_TAG = "v3.1-1606260712"
 OLD_VERSION_CODE = 20900
-NEW_VERSION_CODE = 30000
+NEW_VERSION_CODE = 30100
 
 
 def patch_const16(raw: bytearray, code_off: int, ins_off: int, expected: int, new_value: int) -> None:

@@ -1,14 +1,11 @@
-# Licznik jazdy 3.0 - 1506260712
+# Licznik jazdy 3.1 - 1606260712
 
-## Wprowadzone zmiany
+## Zmiany
 
-- Zmniejszono wysokość panelu przycisków Start, Stop i Reset z 86 dp do 83 dp.
-- Rozmiary ikon pozostały bez zmian.
-- Powiększono kompas z 92 × 92 dp do 100 × 100 dp.
-- Przesunięto kompas o 2 dp do góry i 2 dp w prawo.
-- Zwiększono rezerwę miejsca obok prędkości do 100 dp.
-- Zaktualizowano aplikację do wersji 3.0 i `versionCode` 30000.
-
-## Naprawa instalacji
-
-APK jest teraz podpisany prawidłowym schematem **Android APK Signature Scheme v2** i tym samym certyfikatem co wersja 2.9. Naprawia to komunikat „Aplikacja nie została zainstalowana”.
+- Podniesiono wersję do `3.1 - 1606260712`.
+- Podniesiono `versionCode` z `20900` do `30100`.
+- Zachowano pakiet `pl.tomalawsb.licznik`.
+- Zachowano certyfikat podpisujący użyty w dołączonej wersji 2.9.
+- Dodano pełną kryptograficzną kontrolę podpisu APK v2 i skrótu zawartości.
+- Zachowano zmiany interfejsu: kompas 100 dp, przesunięcie o 2 dp oraz panel 83 dp.
+- Dodano lokalny skrypt budowania bez pobierania i wysyłania plików do GitHuba.

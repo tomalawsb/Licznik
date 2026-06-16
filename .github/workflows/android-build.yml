@@ -1,4 +1,4 @@
-name: Automatyczna publikacja Licznik 3.0
+name: Automatyczna publikacja Licznik 3.1
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: licznik-v3.0-publikacja
+  group: licznik-v3.1-publikacja
   cancel-in-progress: false
 
 jobs:
@@ -24,8 +24,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f "Licznik-v3.0-1506260712.apk"
-          sha256sum "Licznik-v3.0-1506260712.apk"
+          test -f "Licznik-v3.1-1606260712.apk"
+          sha256sum "Licznik-v3.1-1606260712.apk"
 
       - name: Opublikuj lub zaktualizuj GitHub Release
         shell: bash
@@ -34,15 +34,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="v3.0-1506260712"
-          APK="Licznik-v3.0-1506260712.apk"
-          TITLE="Licznik jazdy 3.0 - 1506260712"
+          TAG="v3.1-1606260712"
+          APK="Licznik-v3.1-1606260712.apk"
+          TITLE="Licznik jazdy 3.1 - 1606260712"
           NOTES_TMP="${RUNNER_TEMP}/release-notes.txt"
 
           if [ -f "RELEASE_NOTES.md" ]; then
             cat "RELEASE_NOTES.md" > "$NOTES_TMP"
           else
-            echo "Licznik jazdy 3.0 - 1506260712" > "$NOTES_TMP"
+            echo "Licznik jazdy 3.1 - 1606260712" > "$NOTES_TMP"
           fi
 
           printf '\n\nCommit: %s\n' "$GITHUB_SHA" >> "$NOTES_TMP"

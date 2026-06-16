@@ -1,5 +1,5 @@
 ﻿# URUCHOM_WSZYSTKO.ps1
-# Licznik jazdy 3.0
+# Licznik jazdy 3.1
 # Jeden skrypt: buduje APK, tworzy paczke, wysyla projekt przez Git
 # i czeka, az GitHub Actions automatycznie opublikuje APK.
 # Nie uzywa GitHub CLI i nie zadaje pytan.
@@ -11,21 +11,21 @@ Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
 
-$VersionName = "3.0 - 1506260712"
-$Tag = "v3.0-1506260712"
-$VersionFileName = "Licznik-v3.0-1506260712.apk"
+$VersionName = "3.1 - 1606260712"
+$Tag = "v3.1-1606260712"
+$VersionFileName = "Licznik-v3.1-1606260712.apk"
 $RepoUrl = "https://github.com/tomalawsb/Licznik.git"
 $RepoApi = "https://api.github.com/repos/tomalawsb/Licznik"
 $BranchName = "main"
 $GitUserName = "Tomasz Wolak"
 $GitUserEmail = "wolwolak82@gmail.com"
-$CommitMessage = "Licznik Android v3.0 - 1506260712: przyciski nizsze o 3 dp, kompas 100 dp przesuniety o 2 dp w gore i w prawo"
+$CommitMessage = "Licznik Android v3.1 - 1606260712: przyciski nizsze o 3 dp, kompas 100 dp przesuniety o 2 dp w gore i w prawo"
 
 $BaseApk = Join-Path $Root "baseline\Licznik-v2.9-1406262155.apk"
-$UnsignedApk = Join-Path $Root "output\Licznik-v3.0-1506260712-unsigned.apk"
+$UnsignedApk = Join-Path $Root "output\Licznik-v3.1-1606260712-unsigned.apk"
 $FinalApk = Join-Path $Root ("output\" + $VersionFileName)
 $RootApk = Join-Path $Root $VersionFileName
-$Package = Join-Path $Root ("output\Licznik-v3.0-1506260712-KOMPLETNY-PROJEKT.zip")
+$Package = Join-Path $Root ("output\Licznik-v3.1-1606260712-KOMPLETNY-PROJEKT.zip")
 $KeyStore = Join-Path $Root "signing\licznik-release.jks"
 $Password = "Licznik2026!"
 $Alias = "licznik"

@@ -1,16 +1,18 @@
 PASS | Pakiet aplikacji | pl.tomalawsb.licznik
-PASS | versionName | 3.0 - 1506260712
-PASS | versionCode | 30000
-PASS | Podpis instalacyjny APK v2/v3 | v1=False, v2=True, v3=False
+PASS | versionName | 3.1 - 1606260712
+PASS | versionCode | 30100
+PASS | Podpis APK v2 | v1=False, v2=True, v3=False
+PASS | Kryptograficzna weryfikacja podpisu v2 | podpis RSA i skrót zawartości zgodne
+PASS | Oczekiwany certyfikat | 75:B1:97:F8:24:19:C2:4E:78:C9:F6:BD:CD:A0:E6:5F:CF:AB:33:1A:B0:2E:A1:46:5A:C3:1B:D9:73:B6:1E:3A
+PASS | Pakiet zgodny z wersją 2.9 | pl.tomalawsb.licznik
 PASS | Certyfikat zgodny z wersją 2.9 | 75:B1:97:F8:24:19:C2:4E:78:C9:F6:BD:CD:A0:E6:5F:CF:AB:33:1A:B0:2E:A1:46:5A:C3:1B:D9:73:B6:1E:3A
+PASS | versionCode wyższy od wersji 2.9 | 20900 -> 30100
+PASS | Integralność ZIP | bez błędów CRC
 PASS | Kompas 100 dp | v2, 100
 PASS | Kompas 2 dp wyżej | topMargin=6 dp
 PASS | Kompas 2 dp w prawo | rightMargin=2 dp
-PASS | Dolny panel 83 dp | 86 -> 83 dp
-PASS | Ikony zachowane | kod rozmiarów ikon niezmieniony
-PASS | Aktualizator rozpoznaje versionCode 30000 | v5, 30000
-PASS | Tag wydania v3.0 | v3.0-1506260712
-SHA-256 | 124dee1fde3c29b372fa194ec11a53b7250ada16814e708a3502fe420a1686cd
+PASS | Dolny panel 83 dp | 83 dp
+PASS | Aktualizator rozpoznaje versionCode 30100 | v5, 30100
+PASS | Tag wydania v3.1 | v3.1-1606260712
+SHA-256 | a6e460f54ed00a77cb287120407faf31b9e010a6f28cf0928e22133cfaf1b2c6
 WYNIK: WSZYSTKIE TESTY ZALICZONE
-
-PS1: URUCHOM_WSZYSTKO.ps1 zapisany jako UTF-8 BOM + CRLF.

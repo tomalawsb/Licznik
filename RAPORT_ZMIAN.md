@@ -1,20 +1,17 @@
-# Raport zmian - automatyczna publikacja bez pytan
+# Raport zmian
 
-Wersja: **3.0 - 1506260712**
+Wersja: **3.1 - 1606260712**
 
 ## Poprawiono
 
-- Usunieto lokalne uzycie GitHub CLI (`gh`).
-- Usunieto logowanie uruchamiane w przegladarce i kod jednorazowy.
-- Skrypt korzysta z normalnego `git push`, tak jak w przekazanym pliku wzorcowym.
-- Dane logowania pobiera Git Credential Manager zapisany przy Git for Windows.
-- Jeden plik `URUCHOM_WSZYSTKO.ps1` buduje, podpisuje i sprawdza APK, tworzy ZIP, wykonuje commit oraz push.
-- GitHub Actions po pushu automatycznie tworzy albo aktualizuje GitHub Release i podmienia APK.
-- Skrypt sam czeka na zakonczenie publikacji; nie zadaje pytan ani nie wymaga naciskania Enter.
-- Opis commita jednoznacznie zawiera zmiany interfejsu: przyciski nizsze o 3 dp, kompas 100 dp, przesuniecie o 2 dp w gore i w prawo.
+- Wszystkie bieżące oznaczenia wersji ustawiono na 3.1.
+- `versionCode` ustawiono na 30100, czyli wyżej niż 20900 w bazowej wersji 2.9.
+- APK podpisano tym samym certyfikatem co dołączony APK 2.9.
+- Walidator sprawdza teraz nie tylko obecność certyfikatu, lecz także podpis RSA, skrót całej zawartości APK, pakiet, wersję, CRC oraz zgodność aktualizacyjną z wersją 2.9.
+- Dodano `BUDUJ_TYLKO_LOKALNIE.ps1`, który nie wykonuje operacji Git ani GitHub.
 
-## Uruchomienie
+## Pliki wynikowe
 
-```powershell
-.\URUCHOM_WSZYSTKO.ps1
-```
+- `Licznik-v3.1-1606260712.apk`
+- `VALIDATION_RESULTS.txt`
+- `SHA256SUMS.txt`
