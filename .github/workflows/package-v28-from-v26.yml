@@ -1,0 +1,188 @@
+name: Package Licznik 2.8 from clean 2.6
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact clean 2.6 commit
+        uses: actions/checkout@v4
+        with:
+          ref: d59d9b584cf8747d2821584f2c301d246d1274ac
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Download UI patch files
+        run: |
+          mkdir -p tools
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/tomalawsb/Licznik/main/tools/apply_ui_v27.py -o tools/apply_ui_v27.py
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/tomalawsb/Licznik/main/tools/compass_v27.b64 -o tools/compass_v27.b64
+
+      - name: Apply UI changes from 2.7
+        run: python3 tools/apply_ui_v27.py
+
+      - name: Set version 2.8 and repair update workflow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import textwrap
+
+          version = '2.8 - 1406262143'
+          tag = 'v2.8-1406262143'
+          code = '20800'
+
+          main_path = Path('app/src/main/java/pl/tomalawsb/licznik/MainActivity.java')
+          main = main_path.read_text(encoding='utf-8')
+          main = re.sub(r'public static final String VERSION_NAME = ".*?";', f'public static final String VERSION_NAME = "{version}";', main)
+          main = re.sub(r'public static final String CURRENT_RELEASE_TAG = ".*?";', f'public static final String CURRENT_RELEASE_TAG = "{tag}";', main)
+          main = re.sub(r'public static final int CURRENT_VERSION_CODE = \d+;', f'public static final int CURRENT_VERSION_CODE = {code};', main)
+          main_path.write_text(main, encoding='utf-8')
+
+          gradle_path = Path('app/build.gradle')
+          gradle = gradle_path.read_text(encoding='utf-8')
+          gradle = re.sub(r'versionCode \d+', f'versionCode {code}', gradle)
+          gradle = re.sub(r"versionName '.*?'", f"versionName '{version}'", gradle)
+          gradle_path.write_text(gradle, encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          readme = re.sub(r'Wersja: \*\*.*?\*\*', f'Wersja: **{version}**', readme, count=1)
+          readme += textwrap.dedent(f'''
+
+          ## Zmiany {version}
+          - Baza: sprawdzona wersja 2.6 z commita d59d9b584cf8747d2821584f2c301d246d1274ac.
+          - Dodano kompas PNG z prawdziwa przezroczystoscia.
+          - Przesunieto glowna predkosc wyzej.
+          - Powiekszono tekst sredniej i maksymalnej predkosci.
+          - Usunieto Ostatnie jazdy z ekranu glownego.
+          - Powiekszono mape oraz przyciski sterowania.
+          - Powiekszona mapa centruje ostatnia lokalizacje uzytkownika.
+          - Naprawiono publikowanie aktualizacji jako Release 2.8.
+          ''')
+          readme_path.write_text(readme, encoding='utf-8')
+
+          workflow = textwrap.dedent('''
+          name: Build Android APK
+
+          on:
+            push:
+              branches: [ main ]
+            workflow_dispatch:
+
+          permissions:
+            contents: write
+
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Pobierz repozytorium
+                  uses: actions/checkout@v4
+
+                - name: Ustaw Java 17
+                  uses: actions/setup-java@v4
+                  with:
+                    distribution: temurin
+                    java-version: '17'
+
+                - name: Ustaw Gradle
+                  uses: gradle/actions/setup-gradle@v4
+                  with:
+                    gradle-version: '8.7'
+
+                - name: Zbuduj APK release
+                  run: gradle assembleRelease
+
+                - name: Udostepnij APK jako artifact
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: Licznik-v2.8-1406262143-apk
+                    path: app/build/outputs/apk/release/app-release.apk
+
+                - name: Opublikuj GitHub Release z APK
+                  if: github.ref == 'refs/heads/main'
+                  env:
+                    GH_TOKEN: ${{ github.token }}
+                  run: |
+                    TAG="v2.8-1406262143"
+                    APK="app/build/outputs/apk/release/app-release.apk"
+                    OUT="Licznik-v2.8-1406262143.apk"
+                    cp "$APK" "$OUT"
+                    if gh release view "$TAG" >/dev/null 2>&1; then
+                      gh release upload "$TAG" "$OUT" --clobber
+                    else
+                      gh release create "$TAG" "$OUT" --title "Licznik jazdy 2.8 - 1406262143" --notes "Wersja 2.8 zbudowana na stabilnej bazie 2.6 z nowym interfejsem, kompasem, wieksza mapa i naprawionym mechanizmem aktualizacji."
+                    fi
+          ''').lstrip()
+          Path('.github/workflows/android-build.yml').write_text(workflow, encoding='utf-8')
+
+          report = textwrap.dedent(f'''
+          LICZNIK JAZDY {version}
+
+          BAZA: wersja 2.6
+          COMMIT BAZOWY: d59d9b584cf8747d2821584f2c301d246d1274ac
+          VERSION CODE: {code}
+          RELEASE TAG: {tag}
+          APK: Licznik-v2.8-1406262143.apk
+
+          To jest kompletny projekt Android, nie paczka nakladkowa.
+          ''').lstrip()
+          Path('RAPORT_WERSJI_2.8.txt').write_text(report, encoding='utf-8')
+          PY
+
+      - name: Validate project
+        run: |
+          grep -q 'VERSION_NAME = "2.8 - 1406262143"' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'CURRENT_RELEASE_TAG = "v2.8-1406262143"' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'CURRENT_VERSION_CODE = 20800' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'versionCode 20800' app/build.gradle
+          grep -q "versionName '2.8 - 1406262143'" app/build.gradle
+          grep -q 'TAG="v2.8-1406262143"' .github/workflows/android-build.yml
+          grep -q 'OUT="Licznik-v2.8-1406262143.apk"' .github/workflows/android-build.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path('app/src/main/res/drawable-nodpi/compass_north.png').read_bytes()
+          if data[:8] != b'\x89PNG\r\n\x1a\n':
+              raise SystemExit('Kompas nie jest PNG')
+          color_type = data[25]
+          has_alpha = color_type in (4, 6) or b'tRNS' in data
+          if not has_alpha:
+              raise SystemExit(f'PNG nie ma przezroczystosci, color_type={color_type}')
+          print('PNG ma przezroczystosc.')
+          PY
+
+      - name: Build release APK
+        run: gradle assembleRelease
+
+      - name: Prepare complete ZIP
+        run: |
+          rm -rf tools
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/Licznik-v2.8-1406262143.apk
+          zip -r dist/Licznik_2.8_KOMPLETNY_PROJEKT.zip . -x '.git/*' '.gradle/*' 'build/*' 'app/build/*' 'dist/*' '*.iml' '.idea/*' '.github/workflows/package-v28-from-v26.yml'
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Licznik-2.8-kompletna-paczka
+          path: |
+            dist/Licznik_2.8_KOMPLETNY_PROJEKT.zip
+            dist/Licznik-v2.8-1406262143.apk
