@@ -1,0 +1,176 @@
+from pathlib import Path
+import re
+
+root = Path(".")
+main_path = root / 'app/src/main/java/pl/tomalawsb/licznik/MainActivity.java'
+service_path = root / 'app/src/main/java/pl/tomalawsb/licznik/RideTrackingService.java'
+gradle_path = root / 'app/build.gradle'
+workflow_path = root / '.github/workflows/android-build.yml'
+readme_path = root / 'README.md'
+
+VERSION = '2.9 - 1406262155'
+TAG = 'v2.9-1406262155'
+CODE = '20900'
+
+
+def replace_method(text: str, signature: str, new_method: str) -> str:
+    start = text.find(signature)
+    if start < 0:
+        raise RuntimeError(f'Nie znaleziono: {signature}')
+    brace = text.find('{', start)
+    if brace < 0:
+        raise RuntimeError(f'Brak klamry: {signature}')
+    depth = 0
+    in_string = False
+    in_char = False
+    escaped = False
+    i = brace
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == '\\':
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif in_char:
+            if escaped:
+                escaped = False
+            elif ch == '\\':
+                escaped = True
+            elif ch == "'":
+                in_char = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "'":
+                in_char = True
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[:start] + new_method.rstrip() + text[i + 1:]
+        i += 1
+    raise RuntimeError(f'Nie domknięto: {signature}')
+
+main = main_path.read_text(encoding='utf-8')
+
+# Imports and class declaration.
+if 'import android.hardware.SensorManager;' not in main:
+    main = main.replace(
+        'import android.graphics.Typeface;\n',
+        'import android.graphics.Typeface;\n'
+        'import android.hardware.Sensor;\n'
+        'import android.hardware.SensorEvent;\n'
+        'import android.hardware.SensorEventListener;\n'
+        'import android.hardware.SensorManager;\n'
+    )
+main = main.replace(
+    'public class MainActivity extends android.app.Activity {',
+    'public class MainActivity extends android.app.Activity implements SensorEventListener {'
+)
+
+# Version.
+main = re.sub(r'public static final String VERSION_NAME = ".*?";', f'public static final String VERSION_NAME = "{VERSION}";', main)
+main = re.sub(r'public static final String CURRENT_RELEASE_TAG = ".*?";', f'public static final String CURRENT_RELEASE_TAG = "{TAG}";', main)
+main = re.sub(r'public static final int CURRENT_VERSION_CODE = \d+;', f'public static final int CURRENT_VERSION_CODE = {CODE};', main)
+
+# Fields.
+if 'private LinearLayout rideActionHost;' not in main:
+    main = main.replace(
+        '    private LinearLayout primaryActionButton;\n',
+        '    private LinearLayout primaryActionButton;\n'
+        '    private LinearLayout rideActionHost;\n'
+    )
+if 'private SensorManager sensorManager;' not in main:
+    main = main.replace(
+        '    private boolean waitingForStopResult = false;\n',
+        '    private boolean waitingForStopResult = false;\n\n'
+        '    private SensorManager sensorManager;\n'
+        '    private Sensor rotationVectorSensor;\n'
+        '    private Sensor accelerometerSensor;\n'
+        '    private Sensor magneticFieldSensor;\n'
+        '    private final float[] gravityValues = new float[3];\n'
+        '    private final float[] magneticValues = new float[3];\n'
+        '    private boolean gravityReady = false;\n'
+        '    private boolean magneticReady = false;\n'
+        '    private float compassDisplayRotation = 0f;\n'
+    )
+
+# Do not let an inactive service snapshot change car mode back to bicycle.
+old_mode_receiver = '''            String incomingMode = intent.getStringExtra("mode");
+            if (incomingMode != null && !incomingMode.equals(selectedMode)) {
+                selectedMode = incomingMode;
+                updateModeVisuals();
+            }
+'''
+new_mode_receiver = '''            String incomingMode = intent.getStringExtra("mode");
+            if (running && incomingMode != null && !incomingMode.equals(selectedMode)) {
+                selectedMode = incomingMode;
+                prefs().edit().putString("last_mode", selectedMode).apply();
+                updateModeVisuals();
+            }
+'''
+if old_mode_receiver not in main:
+    raise RuntimeError('Nie znaleziono bloku trybu w receiverze')
+main = main.replace(old_mode_receiver, new_mode_receiver)
+
+# Sensor initialization.
+old_oncreate = '''        selectedMode = prefs().getString("last_mode", "Rower");
+        buildUi();
+'''
+new_oncreate = '''        selectedMode = prefs().getString("last_mode", "Rower");
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (sensorManager != null) {
+            rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+            accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            magneticFieldSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        }
+        buildUi();
+'''
+if old_oncreate not in main:
+    raise RuntimeError('Nie znaleziono inicjalizacji onCreate')
+main = main.replace(old_oncreate, new_oncreate)
+
+# Functional compass lifecycle and sensor handling.
+compass_block = r'''    @Override protected void onResume() {
+        super.onResume();
+        registerCompassSensors();
+    }
+
+    @Override protected void onPause() {
+        if (sensorManager != null) sensorManager.unregisterListener(this);
+        super.onPause();
+    }
+
+    private void registerCompassSensors() {
+        if (sensorManager == null) return;
+        sensorManager.unregisterListener(this);
+        if (rotationVectorSensor != null) {
+            sensorManager.registerListener(this, rotationVectorSensor, SensorManager.SENSOR_DELAY_GAME);
+        } else {
+            if (accelerometerSensor != null) {
+                sensorManager.registerListener(this, accelerometerSensor, SensorManager.SENSOR_DELAY_GAME);
+            }
+            if (magneticFieldSensor != null) {
+                sensorManager.registerListener(this, magneticFieldSensor, SensorManager.SENSOR_DELAY_GAME);
+            }
+        }
+    }
+
+    @Override public void onSensorChanged(SensorEvent event) {
+        if (event == null || event.sensor == null) return;
+
+        float[] rotationMatrix = new float[9];
+        boolean orientationReady = false;
+
+        if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+            orientationReady = true;
+        } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            lowPassSensor(event.values, gravityValues);
+            gravityReady = true;
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            

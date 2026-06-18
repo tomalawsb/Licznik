@@ -1,0 +1,155 @@
+ lowPassSensor(event.values, magneticValues);
+            magneticReady = true;
+        }
+
+        if (!orientationReady && gravityReady && magneticReady) {
+            orientationReady = SensorManager.getRotationMatrix(rotationMatrix, null, gravityValues, magneticValues);
+        }
+        if (!orientationReady) return;
+
+        float[] orientation = new float[3];
+        SensorManager.getOrientation(rotationMatrix, orientation);
+        float azimuth = (float) Math.toDegrees(orientation[0]);
+        if (azimuth < 0f) azimuth += 360f;
+        rotateCompassTo(-azimuth);
+    }
+
+    private void lowPassSensor(float[] input, float[] output) {
+        final float alpha = 0.18f;
+        for (int i = 0; i < 3 && i < input.length; i++) {
+            output[i] += alpha * (input[i] - output[i]);
+        }
+    }
+
+    private void rotateCompassTo(float targetRotation) {
+        float delta = ((targetRotation - compassDisplayRotation + 540f) % 360f) - 180f;
+        compassDisplayRotation += delta * 0.32f;
+        if (compassView != null) compassView.setRotation(compassDisplayRotation);
+    }
+
+    @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Nie wymaga dodatkowej obsługi.
+    }
+
+'''
+if 'private void registerCompassSensors()' not in main:
+    marker = '    @Override protected void onDestroy() {'
+    if marker not in main:
+        raise RuntimeError('Nie znaleziono onDestroy')
+    main = main.replace(marker, compass_block + marker)
+
+# Main screen structure: scrollable content, fixed controls, bottom navigation.
+main = replace_method(main, '    private void buildUi()', r'''    private void buildUi() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(BG);
+        setContentView(root);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(18), dp(10), dp(18), dp(5));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(84)));
+
+        headerModeIcon = circleText(modeEmoji(), 46, Color.rgb(232, 247, 235), GREEN_DARK, 21);
+        headerModeIcon.setElevation(dp(2));
+        headerModeIcon.setOnClickListener(v -> chooseModeDialog());
+        header.addView(headerModeIcon);
+
+        LinearLayout titleBox = new LinearLayout(this);
+        titleBox.setOrientation(LinearLayout.VERTICAL);
+        titleBox.setPadding(dp(14), 0, 0, 0);
+        header.addView(titleBox, new LinearLayout.LayoutParams(0, -1, 1));
+
+        TextView greeting = text("Dzień dobry!", 13, MUTED, false);
+        titleBox.addView(greeting, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView title = text("Licznik jazdy", 22, NAVY, true);
+        title.setSingleLine(true);
+        titleBox.addView(title, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        TextView bell = circleText("🔔", 42, Color.WHITE, NAVY, 18);
+        bell.setElevation(dp(2));
+        bell.setOnClickListener(v -> Toast.makeText(this, "Powiadomienie GPS pojawia się po starcie jazdy.", Toast.LENGTH_SHORT).show());
+        header.addView(bell, new LinearLayout.LayoutParams(dp(42), dp(42)));
+
+        TextView settings = circleText("⚙", 42, Color.WHITE, NAVY, 21);
+        settings.setElevation(dp(2));
+        settings.setOnClickListener(v -> showSettings());
+        LinearLayout.LayoutParams setLp = new LinearLayout.LayoutParams(dp(42), dp(42));
+        setLp.leftMargin = dp(10);
+        header.addView(settings, setLp);
+
+        contentBox = new LinearLayout(this);
+        contentBox.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(contentBox);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        rideActionHost = new LinearLayout(this);
+        rideActionHost.setOrientation(LinearLayout.VERTICAL);
+        rideActionHost.setGravity(Gravity.CENTER);
+        rideActionHost.setPadding(dp(16), dp(4), dp(16), dp(8));
+        rideActionHost.setBackgroundColor(BG);
+        root.addView(rideActionHost, new LinearLayout.LayoutParams(-1, dp(86)));
+
+        LinearLayout nav = new LinearLayout(this);
+        nav.setGravity(Gravity.CENTER);
+        nav.setPadding(dp(10), dp(4), dp(10), dp(8));
+        nav.setBackground(round(Color.WHITE, 28, Color.TRANSPARENT, 0));
+        nav.setElevation(dp(4));
+        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(70)));
+
+        navRide = navItem(modeEmoji() + "\nJazda", true);
+        navHistory = navItem("↺\nHistoria", false);
+        navProgress = navItem("⌁\nPostępy", false);
+        navProfile = navItem("♙\nProfil", false);
+        nav.addView(navRide, new LinearLayout.LayoutParams(0, -1, 1));
+        nav.addView(navHistory, new LinearLayout.LayoutParams(0, -1, 1));
+        nav.addView(navProgress, new LinearLayout.LayoutParams(0, -1, 1));
+        nav.addView(navProfile, new LinearLayout.LayoutParams(0, -1, 1));
+        navRide.setOnClickListener(v -> renderRide());
+        navHistory.setOnClickListener(v -> renderHistory());
+        navProgress.setOnClickListener(v -> renderProgress());
+        navProfile.setOnClickListener(v -> renderProfile());
+    }''')
+
+main = replace_method(main, '    private void renderRide()', r'''    private void renderRide() {
+        currentTab = 0;
+        if (!running) selectedMode = prefs().getString("last_mode", selectedMode);
+        updateModeVisuals();
+        updateNav();
+        contentBox.removeAllViews();
+        contentBox.setPadding(dp(16), 0, dp(16), dp(10));
+        if (rideActionHost != null) rideActionHost.setVisibility(View.VISIBLE);
+
+        buildSpeedHero();
+        buildDistanceTimeRow();
+        buildGpsCard();
+        buildActionRow();
+
+        updateStatus(-1);
+        updatePrimaryButton();
+        requestSnapshot();
+    }''')
+
+# Keep current heading after recreating the ride view.
+needle = '        compassView.setContentDescription("Kompas wskazujący północ");\n'
+if needle not in main:
+    raise RuntimeError('Nie znaleziono compassView')
+main = main.replace(needle, needle + '        compassView.setRotation(compassDisplayRotation);\n', 1)
+
+# Enlarge map card.
+main = main.replace('        card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(220)));',
+                    '        card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(300)));', 1)
+main = main.replace('        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(286));',
+                    '        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(366));', 1)
+
+# Fixed controls directly above tabs.
+main = replace_method(main, '    private void buildActionRow()', r'''    private void buildActionRow() {
+        if (rideActionHost == null) return;
+        rideActionHost.removeAllViews();
+
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER);
+        

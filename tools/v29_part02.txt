@@ -1,0 +1,157 @@
+row.setGravity(Gravity.CENTER);
+        rideActionHost.addView(row, new LinearLayout.LayoutParams(-1, -1));
+
+        primaryActionButton = actionBtn("▶", "Rozpocznij jazdę", GREEN, v -> primaryRideAction());
+        primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
+        primaryActionLabel = (TextView) primaryActionButton.getChildAt(1);
+        LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(0, -1, 1);
+        pLp.setMargins(0, 0, dp(8), 0);
+        row.addView(primaryActionButton, pLp);
+
+        TextView stop = squareAction("■", RED, v -> stopRide());
+        LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(dp(72), -1);
+        sLp.setMargins(0, 0, dp(8), 0);
+        row.addView(stop, sLp);
+
+        TextView reset = squareAction("↻", TEXT, v -> resetRide());
+        row.addView(reset, new LinearLayout.LayoutParams(dp(72), -1));
+    }''')
+
+# Hide fixed controls outside ride tab.
+for sig in ('    private void renderHistory()', '    private void renderProgress()', '    private void renderProfile()'):
+    idx = main.find(sig)
+    if idx < 0:
+        raise RuntimeError(f'Nie znaleziono {sig}')
+    brace = main.find('{', idx)
+    main = main[:brace + 1] + '\n        if (rideActionHost != null) rideActionHost.setVisibility(View.GONE);' + main[brace + 1:]
+
+# Larger icons.
+main = replace_method(main, '    private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener)', r'''    private LinearLayout actionBtn(String icon, String label, int color, View.OnClickListener listener) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.HORIZONTAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(10), 0, dp(16), 0);
+        b.setBackground(gradient(color, Color.rgb(0, 126, 89), 14));
+        b.setElevation(dp(3));
+        b.setOnClickListener(listener);
+        TextView i = text(icon, 36, Color.WHITE, true);
+        i.setGravity(Gravity.CENTER);
+        b.addView(i, new LinearLayout.LayoutParams(dp(58), -1));
+        TextView l = text(label, 17, Color.WHITE, true);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        b.addView(l, new LinearLayout.LayoutParams(-2, -1));
+        return b;
+    }''')
+
+main = replace_method(main, '    private TextView squareAction(String label, int color, View.OnClickListener listener)', r'''    private TextView squareAction(String label, int color, View.OnClickListener listener) {
+        TextView b = text(label, 36, color, true);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(round(Color.WHITE, 14, BORDER, 1));
+        b.setElevation(dp(2));
+        b.setOnClickListener(listener);
+        return b;
+    }''')
+main = main.replace('primaryActionIcon.setText("▷");', 'primaryActionIcon.setText("▶");')
+
+# Guard against accidental duplicate signatures.
+duplicate = ('    private TextView buildMiniMetric(LinearLayout parent, String icon, String label, String value, int accent) {\n'
+             '    private TextView buildMiniMetric(LinearLayout parent, String icon, String label, String value, int accent) {\n')
+main = main.replace(duplicate, '    private TextView buildMiniMetric(LinearLayout parent, String icon, String label, String value, int accent) {\n')
+
+main_path.write_text(main, encoding='utf-8')
+
+# Service uses saved mode for inactive snapshots.
+service = service_path.read_text(encoding='utf-8')
+old_snapshot = '''        else if (ACTION_SNAPSHOT.equals(action)) {
+            pointsChanged = true;
+            sendUpdate();
+            if (!running) stopSelf();
+        }
+'''
+new_snapshot = '''        else if (ACTION_SNAPSHOT.equals(action)) {
+            if (!running) {
+                mode = getSharedPreferences("licznik", MODE_PRIVATE).getString("last_mode", mode);
+            }
+            pointsChanged = true;
+            sendUpdate();
+            if (!running) stopSelf();
+        }
+'''
+if old_snapshot not in service:
+    raise RuntimeError('Nie znaleziono ACTION_SNAPSHOT')
+service = service.replace(old_snapshot, new_snapshot)
+service_path.write_text(service, encoding='utf-8')
+
+# Gradle version.
+gradle = gradle_path.read_text(encoding='utf-8')
+gradle = re.sub(r'versionCode \d+', f'versionCode {CODE}', gradle)
+gradle = re.sub(r"versionName '.*?'", f"versionName '{VERSION}'", gradle)
+gradle_path.write_text(gradle, encoding='utf-8')
+
+# Safe workflow with literal GitHub token expression, no embedded credential.
+workflow = r'''name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v4
+
+      - name: Ustaw Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ustaw Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Zbuduj APK release
+        run: gradle assembleRelease
+
+      - name: Udostepnij APK jako artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Licznik-v2.9-1406262155-apk
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Opublikuj GitHub Release z APK
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v2.9-1406262155"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          OUT="Licznik-v2.9-1406262155.apk"
+          cp "$APK" "$OUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$OUT" --clobber
+          else
+            gh release create "$TAG" "$OUT" --title "Licznik jazdy 2.9 - 1406262155" --notes "Responsywny kompas, zachowanie trybu samochodowego, wieksze ikony, staly panel sterowania nad zakladkami i powiekszona mapa."
+          fi
+'''
+workflow_path.write_text(workflow, encoding='utf-8')
+
+# Remove obsolete auto-patching workflow from the package.
+obsolete = root / '.github/workflows/apply-fixes-v26.yml'
+if obsolete.exists():
+    obsolete.unlink()
+
+# Documentation.
+readme = readme_path.read_text(encoding='utf-8')
+readme = re.sub(r'Wersja: \*\*.*?\*\*', f'Wersja: **{VERSION}**', readme, count=1)
+readme += f'''\n\n## Zmiany {VERSION}\n- Kompas reaguje na czujnik obrotu telefonu; ma fallback na akcelerometr i magnetometr.\n- Tryb Samochód pozostaje aktywny po powrocie do zakładki Jazda.\n- Powiększono ikony Start, Stop i Reset.\n- Panel Start/Stop/Reset jest stale bezpośrednio nad dolnymi zakładkami.\n- Powiększono mapę na ekranie jazdy.\n- Usunięto przestarzały workflow automatycznie nakładający poprawki 2.6.\n'''
+readme_path.write_text(readme, encoding='utf-8')
+
+(root / 'RAPORT_WERSJI_2.9.txt').write_text(f'''LICZNIK JAZDY {VERSION}\n\nVERSION CODE: {CODE}\nRELEASE TAG: {TAG}\n\nPOPRAWKI:\n1. Responsywny kompas sprzętowy.\n2. Zachowanie trybu samochodowego.\n3. Większe ikon

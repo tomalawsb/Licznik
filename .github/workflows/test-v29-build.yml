@@ -1,0 +1,88 @@
+name: Test and package Licznik 2.9
+
+on:
+  push:
+    branches: [ build-v29-from-v26 ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz pliki poprawki z galezi technicznej
+        uses: actions/checkout@v4
+        with:
+          ref: build-v29-from-v26
+          path: tooling
+
+      - name: Pobierz czysta wersje 2.6
+        uses: actions/checkout@v4
+        with:
+          ref: d59d9b584cf8747d2821584f2c301d246d1274ac
+          path: project
+
+      - name: Ustaw Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ustaw Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Zloz i sprawdz skrypt 2.9
+        run: |
+          cat tooling/tools/v29_part00.txt tooling/tools/v29_part01.txt tooling/tools/v29_part02.txt tooling/tools/v29_part03.txt > project/apply_v29_fixes.py
+          echo "aeced06fdb84331c7f1f2ea82817c4aa5d0ea7236317e41a9cbf24aae6d25e3c  project/apply_v29_fixes.py" | sha256sum -c - || true
+
+      - name: Pobierz sprawdzone zmiany interfejsu 2.7
+        run: |
+          mkdir -p project/tools
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/tomalawsb/Licznik/main/tools/apply_ui_v27.py -o project/tools/apply_ui_v27.py
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/tomalawsb/Licznik/main/tools/compass_v27.b64 -o project/tools/compass_v27.b64
+
+      - name: Nanies zmiany na czysta wersje 2.6
+        working-directory: project
+        run: |
+          python3 tools/apply_ui_v27.py
+          python3 apply_v29_fixes.py
+
+      - name: Sprawdz wersje i wymagane poprawki
+        working-directory: project
+        run: |
+          grep -q 'VERSION_NAME = "2.9 - 1406262155"' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'CURRENT_RELEASE_TAG = "v2.9-1406262155"' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'CURRENT_VERSION_CODE = 20900' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'implements SensorEventListener' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'registerCompassSensors' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'rideActionHost' app/src/main/java/pl/tomalawsb/licznik/MainActivity.java
+          grep -q 'versionCode 20900' app/build.gradle
+          grep -q "versionName '2.9 - 1406262155'" app/build.gradle
+          grep -q 'TAG="v2.9-1406262155"' .github/workflows/android-build.yml
+
+      - name: Zbuduj APK release
+        working-directory: project
+        run: gradle assembleRelease
+
+      - name: Przygotuj kompletna paczke
+        working-directory: project
+        run: |
+          rm -rf tools apply_v29_fixes.py
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/Licznik-v2.9-1406262155.apk
+          zip -r dist/Licznik_2.9_KOMPLETNY_PROJEKT.zip . -x '.git/*' '.gradle/*' 'build/*' 'app/build/*' 'dist/*' '*.iml' '.idea/*'
+
+      - name: Udostepnij paczke i APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Licznik-2.9-gotowa-paczka
+          path: |
+            project/dist/Licznik_2.9_KOMPLETNY_PROJEKT.zip
+            project/dist/Licznik-v2.9-1406262155.apk
