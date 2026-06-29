@@ -1,25 +1,18 @@
-# Licznik jazdy 3.4
+# Licznik jazdy 3.6
 
-Wersja: **3.4 - 2906261015**  
-`versionCode`: **30400**
+Wersja: **3.6 - 2906261055**  
+`versionCode`: **30600**
 
-## Nowe POI pod kompasem
+## Poprawiono
 
-Dodano mały kafelek POI pod kompasem:
+- `MainActivity.java` ma teraz właściwą wersję 3.6.
+- Kompas korzysta z czujnika `rotation vector`.
+- Gdy telefon nie ma `rotation vector`, aplikacja używa akcelerometru i magnetometru.
+- Dodano korektę deklinacji magnetycznej z GPS.
+- Ruch igły jest wygładzany i odświeżany płynnie.
+- Igła celu obraca się względem aktualnego kierunku telefonu.
+- Kierunek jazdy GPS jest fallbackiem, gdy czujnik kompasu nie daje danych.
 
-- pokazuje najbliższy punkt orientacyjny z OpenStreetMap/Overpass,
-- obsługuje m.in. stacje paliw, sklepy, schroniska, kempingi, parkingi, apteki, restauracje, kawiarnie, szpitale, policję i punkty widokowe,
-- po kliknięciu kafelek przełącza się na kolejny punkt,
-- bez dotykania przełącza się automatycznie co 3 minuty,
-- po dłuższym przytrzymaniu kafelka POI ustawia się jako cel kompasu,
-- przy punkcie wyświetlana jest odległość i strzałka kierunku.
+APK po GitHub Actions:
 
-## APK
-
-Po wysłaniu na GitHub Actions buduje:
-
-`Licznik-v3.4-2906261015.apk`
-
-## Uwaga techniczna
-
-POI są pobierane dynamicznie przez internet z Overpass API. Gdy nie ma internetu albo serwer Overpass chwilowo nie odpowiada, kafelek pokaże informację `POI: brak internetu`.
+`Licznik-v3.6-2906261055.apk`

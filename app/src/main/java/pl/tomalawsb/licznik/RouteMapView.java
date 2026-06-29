@@ -34,10 +34,25 @@ public class RouteMapView extends FrameLayout {
         void onTargetSelected(double lat, double lon);
     }
 
+    private static class PoiMarker {
+        final GeoPoint point;
+        final String name;
+        final String type;
+        final String emoji;
+
+        PoiMarker(GeoPoint point, String name, String type, String emoji) {
+            this.point = point;
+            this.name = name;
+            this.type = type;
+            this.emoji = emoji;
+        }
+    }
+
     private final MapView mapView;
     private final TextView placeholder;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final List<GeoPoint> routePoints = new ArrayList<>();
+    private final List<PoiMarker> poiMarkers = new ArrayList<>();
     private String lastPointsJson = "[]";
     private boolean interactive = false;
     private OnClickListener externalClickListener;
@@ -182,10 +197,39 @@ public class RouteMapView extends FrameLayout {
         }
     }
 
+
+    public void setPoiMarkersFromJson(String json) {
+        poiMarkers.clear();
+        try {
+            JSONArray arr = new JSONArray(json == null ? "[]" : json);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONArray p = arr.getJSONArray(i);
+                double lat = p.getDouble(0);
+                double lon = p.getDouble(1);
+                String name = p.length() > 2 ? p.optString(2, "POI") : "POI";
+                String type = p.length() > 3 ? p.optString(3, "POI") : "POI";
+                String emoji = p.length() > 4 ? p.optString(4, "◆") : "◆";
+                poiMarkers.add(new PoiMarker(new GeoPoint(lat, lon), name, type, emoji));
+            }
+        } catch (Exception ignored) {}
+        redrawRoute();
+    }
+
+    public void centerOnPoint(double lat, double lon, double zoom) {
+        GeoPoint p = new GeoPoint(lat, lon);
+        mapView.post(() -> {
+            mapView.getController().setCenter(p);
+            mapView.getController().animateTo(p);
+            mapView.getController().setZoom(zoom);
+            mapView.invalidate();
+        });
+    }
+
     public void clear() {
         lastPointsJson = "[]";
         routePoints.clear();
         mapView.getOverlays().clear();
+        addPoiMarkerOverlays();
         if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
         ensureTargetEventsOverlay();
         placeholder.setVisibility(VISIBLE);
@@ -246,9 +290,10 @@ public class RouteMapView extends FrameLayout {
     private void redrawRoute() {
         mapView.getOverlays().clear();
         if (routePoints.isEmpty()) {
+  addPoiMarkerOverlays();
   if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
   ensureTargetEventsOverlay();
-  placeholder.setVisibility(VISIBLE);
+  placeholder.setVisibility(poiMarkers.isEmpty() ? VISIBLE : GONE);
   mapView.invalidate();
   return;
         }
@@ -274,9 +319,20 @@ public class RouteMapView extends FrameLayout {
   mapView.getOverlays().add(marker(routePoints.get(0), Color.rgb(15, 23, 42)));
         }
         mapView.getOverlays().add(marker(routePoints.get(routePoints.size() - 1), Color.rgb(34, 197, 94)));
+        addPoiMarkerOverlays();
         if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
         ensureTargetEventsOverlay();
         fitRoute();
+    }
+
+
+    private void addPoiMarkerOverlays() {
+        for (PoiMarker p : poiMarkers) {
+            Marker m = marker(p.point, Color.rgb(245, 158, 11));
+            m.setTitle((p.emoji == null ? "◆" : p.emoji) + " " + p.name);
+            m.setSnippet(p.type);
+            mapView.getOverlays().add(m);
+        }
     }
 
     private Marker marker(GeoPoint point, int color) {

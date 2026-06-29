@@ -11,6 +11,11 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.hardware.GeomagneticField;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,6 +31,7 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -50,9 +56,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.4 - 2906261015";
-    public static final String CURRENT_RELEASE_TAG = "v3.4-2906261015";
-    public static final int CURRENT_VERSION_CODE = 30400;
+    public static final String VERSION_NAME = "3.6 - 2906261055";
+    public static final String CURRENT_RELEASE_TAG = "v3.6-2906261055";
+    public static final int CURRENT_VERSION_CODE = 30600;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -93,6 +99,24 @@ public class MainActivity extends android.app.Activity {
     private double currentLon = 0;
     private boolean hasCourseBearing = false;
     private double courseBearing = 0;
+    private SensorManager sensorManager;
+    private Sensor rotationVectorSensor;
+    private Sensor accelerometerSensor;
+    private Sensor magnetometerSensor;
+    private final float[] accelValues = new float[3];
+    private final float[] magnetValues = new float[3];
+    private final float[] rotationMatrix = new float[9];
+    private final float[] orientationValues = new float[3];
+    private boolean hasAccelValues = false;
+    private boolean hasMagnetValues = false;
+    private boolean hasCompassAzimuth = false;
+    private double compassAzimuth = 0;
+    private double smoothedAzimuth = 0;
+    private double magneticDeclination = 0;
+    private float desiredNeedleRotation = 0f;
+    private float desiredTargetRotation = 0f;
+    private float displayedNeedleRotation = 0f;
+    private float displayedTargetRotation = 0f;
     private boolean hasTargetPoint = false;
     private double targetLat = 0;
     private double targetLon = 0;
@@ -124,6 +148,39 @@ public class MainActivity extends android.app.Activity {
         @Override public void run() {
             cyclePoi(false);
             uiHandler.postDelayed(this, 180000);
+        }
+    };
+
+    private final Runnable compassTicker = new Runnable() {
+        @Override public void run() {
+            applyCompassFrame();
+            uiHandler.postDelayed(this, 16);
+        }
+    };
+
+    private final SensorEventListener compassSensorListener = new SensorEventListener() {
+        @Override public void onSensorChanged(SensorEvent event) {
+            if (event == null || event.sensor == null) return;
+
+            if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                updateAzimuthFromRotationMatrix();
+            } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                for (int i = 0; i < 3; i++) {
+                    accelValues[i] = hasAccelValues ? accelValues[i] * 0.82f + event.values[i] * 0.18f : event.values[i];
+                }
+                hasAccelValues = true;
+                updateAzimuthFromAccelMag();
+            } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                for (int i = 0; i < 3; i++) {
+                    magnetValues[i] = hasMagnetValues ? magnetValues[i] * 0.86f + event.values[i] * 0.14f : event.values[i];
+                }
+                hasMagnetValues = true;
+                updateAzimuthFromAccelMag();
+            }
+        }
+
+        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     };
 
@@ -211,13 +268,16 @@ public class MainActivity extends android.app.Activity {
         w.setNavigationBarColor(BG);
         selectedMode = prefs().getString("last_mode", "Rower");
         loadSavedTargetPoint();
+        initCompassSensors();
         buildUi();
         enterImmersiveMode();
         registerUpdates();
         requestPermissionsIfNeeded(false);
         renderRide();
         uiHandler.post(clockUiTicker);
+        uiHandler.post(compassTicker);
         uiHandler.postDelayed(poiRotator, 180000);
+        registerCompassSensors();
         if (prefs().getBoolean("auto_update_check", false)) checkForUpdates(false);
     }
 
@@ -245,10 +305,114 @@ public class MainActivity extends android.app.Activity {
         }
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        registerCompassSensors();
+    }
+
+    @Override protected void onPause() {
+        unregisterCompassSensors();
+        super.onPause();
+    }
+
     @Override protected void onDestroy() {
         try { unregisterReceiver(updateReceiver); } catch (Exception ignored) {}
+        unregisterCompassSensors();
         uiHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
+    }
+
+
+    private void initCompassSensors() {
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager == null) return;
+        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+    }
+
+    private void registerCompassSensors() {
+        if (sensorManager == null) return;
+        try {
+            if (rotationVectorSensor != null) {
+                sensorManager.registerListener(compassSensorListener, rotationVectorSensor, SensorManager.SENSOR_DELAY_GAME);
+            } else {
+                if (accelerometerSensor != null) sensorManager.registerListener(compassSensorListener, accelerometerSensor, SensorManager.SENSOR_DELAY_GAME);
+                if (magnetometerSensor != null) sensorManager.registerListener(compassSensorListener, magnetometerSensor, SensorManager.SENSOR_DELAY_GAME);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void unregisterCompassSensors() {
+        if (sensorManager == null) return;
+        try { sensorManager.unregisterListener(compassSensorListener); } catch (Exception ignored) {}
+    }
+
+    private void updateAzimuthFromAccelMag() {
+        if (!hasAccelValues || !hasMagnetValues) return;
+        boolean ok = SensorManager.getRotationMatrix(rotationMatrix, null, accelValues, magnetValues);
+        if (ok) updateAzimuthFromRotationMatrix();
+    }
+
+    private void updateAzimuthFromRotationMatrix() {
+        SensorManager.getOrientation(rotationMatrix, orientationValues);
+        double az = Math.toDegrees(orientationValues[0]);
+        az = normalizeDegrees(az + magneticDeclination);
+        updateSmoothedCompassAzimuth(az);
+    }
+
+    private void updateSmoothedCompassAzimuth(double azimuth) {
+        if (!hasCompassAzimuth) {
+            smoothedAzimuth = azimuth;
+            displayedNeedleRotation = (float) -azimuth;
+            hasCompassAzimuth = true;
+        } else {
+            double delta = normalizeDeltaDegrees(azimuth - smoothedAzimuth);
+            smoothedAzimuth = normalizeDegrees(smoothedAzimuth + delta * 0.16);
+        }
+        compassAzimuth = azimuth;
+        updateCompassAndTargetUi();
+    }
+
+    private void updateMagneticDeclination() {
+        if (!hasCurrentLocation) return;
+        try {
+            GeomagneticField field = new GeomagneticField((float) currentLat, (float) currentLon, 0f, System.currentTimeMillis());
+            magneticDeclination = field.getDeclination();
+        } catch (Exception ignored) {}
+    }
+
+    private double headingReferenceDegrees() {
+        if (hasCompassAzimuth) return smoothedAzimuth;
+        if (hasCourseBearing) return courseBearing;
+        return 0;
+    }
+
+    private double normalizeDegrees(double value) {
+        double out = value % 360.0;
+        if (out < 0) out += 360.0;
+        return out;
+    }
+
+    private double normalizeDeltaDegrees(double value) {
+        double out = (value + 540.0) % 360.0 - 180.0;
+        return out;
+    }
+
+    private float smoothRotation(float current, float target, float factor) {
+        float delta = (float) normalizeDeltaDegrees(target - current);
+        return current + delta * factor;
+    }
+
+    private void applyCompassFrame() {
+        if (compassNeedleView != null) {
+            displayedNeedleRotation = smoothRotation(displayedNeedleRotation, desiredNeedleRotation, 0.11f);
+            compassNeedleView.setRotation(displayedNeedleRotation);
+        }
+        if (targetCompassView != null && hasTargetPoint) {
+            displayedTargetRotation = smoothRotation(displayedTargetRotation, desiredTargetRotation, 0.12f);
+            targetCompassView.setRotation(displayedTargetRotation);
+        }
     }
 
     private SharedPreferences prefs() { return getSharedPreferences("licznik", MODE_PRIVATE); }
@@ -439,7 +603,7 @@ public class MainActivity extends android.app.Activity {
         mapFrame.addView(statusText, statusLp);
 
         View compassOverlay = buildCompassOverlay();
-        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(142), dp(174), Gravity.TOP | Gravity.RIGHT);
+        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(150), dp(194), Gravity.TOP | Gravity.RIGHT);
         compassLp.topMargin = dp(8);
         compassLp.rightMargin = dp(8);
         mapFrame.addView(compassOverlay, compassLp);
@@ -460,6 +624,7 @@ public class MainActivity extends android.app.Activity {
         contentBox.addView(card, lp);
 
         updateCompassAndTargetUi();
+        updatePoiMarkersOnMaps();
     }
 
     private View buildCompassOverlay() {
@@ -489,20 +654,22 @@ public class MainActivity extends android.app.Activity {
         stack.addView(compassNeedleView, new FrameLayout.LayoutParams(-1, -1));
 
         targetCompassView = new ImageView(this);
-        targetCompassView.setImageResource(R.drawable.kompas_wskaznik_celu);
+        targetCompassView.setImageResource(R.drawable.kompas_wskaznik_celu_v35);
         targetCompassView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
         stack.addView(targetCompassView, new FrameLayout.LayoutParams(-1, -1));
 
         box.addView(stack, new LinearLayout.LayoutParams(dp(104), dp(104)));
 
-        targetInfoText = text("Przytrzymaj mapę\naby ustawić cel", 10, Color.WHITE, true);
+        targetInfoText = text("Cel: brak", 11, Color.WHITE, true);
         targetInfoText.setGravity(Gravity.CENTER);
-        targetInfoText.setShadowLayer(4f, 0f, 1f, Color.BLACK);
+        targetInfoText.setShadowLayer(5f, 0f, 1f, Color.BLACK);
+        targetInfoText.setBackground(round(Color.argb(115, 0, 0, 0), 10, Color.argb(90, 255, 255, 255), 1));
+        targetInfoText.setPadding(dp(4), 0, dp(4), 0);
         targetInfoText.setSingleLine(false);
-        box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(34)));
+        box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(32)));
 
-        poiInfoText = text("POI: szukam...", 10, Color.WHITE, true);
+        poiInfoText = text("POI: szukam...", 11, Color.WHITE, true);
         poiInfoText.setGravity(Gravity.CENTER);
         poiInfoText.setSingleLine(true);
         poiInfoText.setShadowLayer(4f, 0f, 1f, Color.BLACK);
@@ -518,7 +685,7 @@ public class MainActivity extends android.app.Activity {
             }
             return false;
         });
-        box.addView(poiInfoText, new LinearLayout.LayoutParams(-1, dp(28)));
+        box.addView(poiInfoText, new LinearLayout.LayoutParams(-1, dp(36)));
         return box;
     }
 
@@ -944,34 +1111,50 @@ public class MainActivity extends android.app.Activity {
         top.setGravity(Gravity.CENTER_VERTICAL);
         TextView titleView = text(title, 19, NAVY, true);
         top.addView(titleView, new LinearLayout.LayoutParams(0, dp(42), 1));
-        TextView fitBtnTop = pill(currentRoute ? "Moja pozycja" : "Dopasuj", Color.WHITE, GREEN, 13, true);
-        top.addView(fitBtnTop, new LinearLayout.LayoutParams(currentRoute ? dp(112) : dp(86), dp(36)));
-        TextView closeBtn = circleText("×", 36, Color.WHITE, NAVY, 22);
-        LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(dp(38), dp(38));
-        closeLp.leftMargin = dp(8);
-        top.addView(closeBtn, closeLp);
+
+        TextView closeBtn = pill("Zamknij", Color.WHITE, RED, 14, true);
+        closeBtn.setGravity(Gravity.CENTER);
+        top.addView(closeBtn, new LinearLayout.LayoutParams(dp(104), dp(38)));
         root.addView(top, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        TextView hint = text((summary == null ? "" : summary + "\n") + "Przytrzymaj palec na mapie, żeby ustawić cel kompasu.", 12, MUTED, false);
+        TextView hint = text((summary == null ? "" : summary + "\n") + "Przytrzymaj mapę, żeby ustawić cel. POI są zaznaczone na mapie.", 12, MUTED, false);
         hint.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(hint, new LinearLayout.LayoutParams(-1, dp(54)));
+
+        LinearLayout searchRow = new LinearLayout(this);
+        searchRow.setGravity(Gravity.CENTER_VERTICAL);
+        EditText search = new EditText(this);
+        search.setSingleLine(true);
+        search.setTextSize(13);
+        search.setHint("Szukaj POI: stacja, schronisko, rower...");
+        search.setTextColor(TEXT);
+        search.setHintTextColor(MUTED);
+        search.setPadding(dp(10), 0, dp(10), 0);
+        search.setBackground(round(Color.WHITE, 12, BORDER, 1));
+        searchRow.addView(search, new LinearLayout.LayoutParams(0, dp(42), 1));
+        TextView searchBtn = pill("Szukaj", Color.WHITE, GREEN, 13, true);
+        searchBtn.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams searchBtnLp = new LinearLayout.LayoutParams(dp(82), dp(42));
+        searchBtnLp.leftMargin = dp(8);
+        searchRow.addView(searchBtn, searchBtnLp);
+        root.addView(searchRow, new LinearLayout.LayoutParams(-1, dp(48)));
 
         RouteMapView fullMap = new RouteMapView(this);
         activeFullMap = fullMap;
         fullMap.setInteractive(true);
         fullMap.setPointsFromJson(pointsJson);
         if (hasTargetPoint) fullMap.setTargetPoint(targetLat, targetLon);
+        fullMap.setPoiMarkersFromJson(poiMarkersJson());
         fullMap.setOnTargetSelectedListener((lat, lon) -> setTargetPoint(lat, lon));
         root.addView(fullMap, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView closeBottom = settingsButton("Zamknij", GREEN, v -> d.dismiss());
-        LinearLayout.LayoutParams closeBottomLp = new LinearLayout.LayoutParams(-1, dp(48));
+        TextView closeBottom = pill("Zamknij mapę", Color.WHITE, RED, 15, true);
+        closeBottom.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams closeBottomLp = new LinearLayout.LayoutParams(-1, dp(50));
         closeBottomLp.setMargins(0, dp(10), 0, 0);
         root.addView(closeBottom, closeBottomLp);
 
-        View.OnClickListener closeNow = v -> {
-            try { d.dismiss(); } catch (Exception ignored) {}
-        };
+        View.OnClickListener closeNow = v -> d.dismiss();
         closeBtn.setOnClickListener(closeNow);
         closeBottom.setOnClickListener(closeNow);
         closeBtn.setOnTouchListener((v, e) -> {
@@ -983,10 +1166,8 @@ public class MainActivity extends android.app.Activity {
             return true;
         });
 
-        fitBtnTop.setOnClickListener(v -> {
-            if (currentRoute) fullMap.centerOnLastPoint(17.0);
-            else fullMap.fitRoute();
-        });
+        searchBtn.setOnClickListener(v -> searchPoiFromDialog(search.getText().toString(), fullMap));
+
         d.setOnDismissListener(x -> {
             if (activeRouteDialog == d) activeRouteDialog = null;
             if (activeFullMap == fullMap) activeFullMap = null;
@@ -1007,6 +1188,61 @@ public class MainActivity extends android.app.Activity {
     }
 
 
+
+
+    private String poiMarkersJson() {
+        JSONArray arr = new JSONArray();
+        try {
+            int limit = Math.min(12, poiPoints.size());
+            for (int i = 0; i < limit; i++) {
+                PoiPoint p = poiPoints.get(i);
+                JSONArray item = new JSONArray();
+                item.put(p.lat);
+                item.put(p.lon);
+                item.put(p.name);
+                item.put(p.type);
+                item.put(p.emoji);
+                arr.put(item);
+            }
+        } catch (Exception ignored) {}
+        return arr.toString();
+    }
+
+    private void updatePoiMarkersOnMaps() {
+        String json = poiMarkersJson();
+        if (routeView != null) routeView.setPoiMarkersFromJson(json);
+        if (activeFullMap != null) activeFullMap.setPoiMarkersFromJson(json);
+    }
+
+    private void searchPoiFromDialog(String query, RouteMapView map) {
+        if (!hasCurrentLocation) {
+            Toast.makeText(this, "Najpierw potrzebny jest GPS.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (poiPoints.isEmpty()) {
+            fetchPoiIfNeeded(true);
+            Toast.makeText(this, "Pobieram POI z okolicy. Spróbuj ponownie za chwilę.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (q.isEmpty()) {
+            Toast.makeText(this, "Wpisz np. stacja, sklep, schronisko, rower.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        for (int i = 0; i < poiPoints.size(); i++) {
+            PoiPoint p = poiPoints.get(i);
+            String hay = (p.name + " " + p.type).toLowerCase(Locale.ROOT);
+            if (hay.contains(q)) {
+                poiIndex = i;
+                updatePoiInfoUi();
+                if (map != null) map.centerOnPoint(p.lat, p.lon, 18.0);
+                Toast.makeText(this, p.emoji + " " + p.name + " • " + formatDistanceMeters(p.distance), Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+        Toast.makeText(this, "Nie znaleziono takiego POI w pobranej okolicy.", Toast.LENGTH_SHORT).show();
+    }
 
     private void cyclePoi(boolean manual) {
         if (poiPoints.size() > 0) {
@@ -1046,6 +1282,7 @@ public class MainActivity extends android.app.Activity {
         PoiPoint p = poiPoints.get(poiIndex);
         double b = bearingDegrees(currentLat, currentLon, p.lat, p.lon);
         poiInfoText.setText(p.emoji + " " + p.name + "  " + formatDistanceMeters(p.distance) + "  " + arrowForBearing(b));
+        updatePoiMarkersOnMaps();
     }
 
     private String arrowForBearing(double bearing) {
@@ -1156,10 +1393,14 @@ public class MainActivity extends android.app.Activity {
                 "way[amenity=fuel](around:7000," + pos + ");" +
                 "node[shop~\"supermarket|convenience|bakery|general\"](around:5000," + pos + ");" +
                 "way[shop~\"supermarket|convenience|bakery|general\"](around:5000," + pos + ");" +
-                "node[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint\"](around:9000," + pos + ");" +
-                "way[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint\"](around:9000," + pos + ");" +
-                "node[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police\"](around:5000," + pos + ");" +
-                "way[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police\"](around:5000," + pos + ");" +
+                "node[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint|picnic_site\"](around:12000," + pos + ");" +
+                "way[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint|picnic_site\"](around:12000," + pos + ");" +
+                "node[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police|shelter|drinking_water|bicycle_parking|bicycle_repair_station\"](around:7000," + pos + ");" +
+                "way[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police|shelter|drinking_water|bicycle_parking|bicycle_repair_station\"](around:7000," + pos + ");" +
+                "node[natural=peak](around:12000," + pos + ");" +
+                "way[highway=cycleway](around:7000," + pos + ");" +
+                "way[bicycle=designated](around:7000," + pos + ");" +
+                "relation[type=route][route=bicycle](around:12000," + pos + ");" +
                 ");out center tags 40;";
     }
 
@@ -1167,7 +1408,18 @@ public class MainActivity extends android.app.Activity {
         String amenity = tags.optString("amenity", "");
         String shop = tags.optString("shop", "");
         String tourism = tags.optString("tourism", "");
+        String natural = tags.optString("natural", "");
+        String highway = tags.optString("highway", "");
+        String route = tags.optString("route", "");
+        String bicycle = tags.optString("bicycle", "");
 
+        if ("bicycle".equals(route)) return "Trasa rowerowa";
+        if ("cycleway".equals(highway) || "designated".equals(bicycle)) return "Ścieżka rowerowa";
+        if ("peak".equals(natural)) return "Szczyt";
+        if ("shelter".equals(amenity)) return "Schronienie";
+        if ("drinking_water".equals(amenity)) return "Woda";
+        if ("bicycle_repair_station".equals(amenity)) return "Serwis rowerowy";
+        if ("bicycle_parking".equals(amenity)) return "Parking rowerowy";
         if ("fuel".equals(amenity)) return "Stacja";
         if ("pharmacy".equals(amenity)) return "Apteka";
         if ("parking".equals(amenity)) return "Parking";
@@ -1178,6 +1430,7 @@ public class MainActivity extends android.app.Activity {
         if (!shop.isEmpty()) return "Sklep";
         if ("alpine_hut".equals(tourism) || "wilderness_hut".equals(tourism)) return "Schronisko";
         if ("camp_site".equals(tourism)) return "Kemping";
+        if ("picnic_site".equals(tourism)) return "Miejsce odpoczynku";
         if ("viewpoint".equals(tourism)) return "Punkt widokowy";
         if ("information".equals(tourism)) return "Informacja";
         return "POI";
@@ -1195,6 +1448,14 @@ public class MainActivity extends android.app.Activity {
         if ("Kawiarnia".equals(type)) return "☕";
         if ("Szpital".equals(type)) return "🏥";
         if ("Policja".equals(type)) return "🚓";
+        if ("Trasa rowerowa".equals(type)) return "🚴";
+        if ("Ścieżka rowerowa".equals(type)) return "🚲";
+        if ("Serwis rowerowy".equals(type)) return "🔧";
+        if ("Parking rowerowy".equals(type)) return "🚲";
+        if ("Szczyt".equals(type)) return "⛰";
+        if ("Schronienie".equals(type)) return "🏚";
+        if ("Woda".equals(type)) return "💧";
+        if ("Miejsce odpoczynku".equals(type)) return "🌲";
         if ("Punkt widokowy".equals(type)) return "⛰";
         return "◆";
     }
@@ -1218,6 +1479,7 @@ public class MainActivity extends android.app.Activity {
                     hasCourseBearing = true;
                 }
             }
+            updateMagneticDeclination();
             fetchPoiIfNeeded(false);
             updatePoiInfoUi();
         } catch (Exception ignored) {}
@@ -1249,27 +1511,30 @@ public class MainActivity extends android.app.Activity {
 
     private void updateCompassAndTargetUi() {
         if (routeView != null && hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
+
+        double headingRef = headingReferenceDegrees();
+        desiredNeedleRotation = (float) -headingRef;
+
         double targetBearing = 0;
         if (hasTargetPoint && hasCurrentLocation) {
             targetBearing = bearingDegrees(currentLat, currentLon, targetLat, targetLon);
         }
+        desiredTargetRotation = (float) normalizeDegrees(targetBearing - headingRef);
+
         if (targetCompassView != null) {
             targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
             targetCompassView.setAlpha(hasTargetPoint ? 1f : 0f);
-            targetCompassView.setRotation((float) targetBearing);
             targetCompassView.bringToFront();
         }
-        if (compassNeedleView != null) {
-            compassNeedleView.setRotation(hasCourseBearing ? (float) courseBearing : 0f);
-        }
+
         if (targetInfoText != null) {
             if (hasTargetPoint && hasCurrentLocation) {
                 double meters = distanceMeters(currentLat, currentLon, targetLat, targetLon);
-                targetInfoText.setText("Cel: " + formatDistanceMeters(meters) + "\nw linii prostej");
+                targetInfoText.setText("Cel: " + formatDistanceMeters(meters));
             } else if (hasTargetPoint) {
-                targetInfoText.setText("Cel ustawiony\nczekam na GPS");
+                targetInfoText.setText("Cel: czekam na GPS");
             } else {
-                targetInfoText.setText("Przytrzymaj mapę\naby ustawić cel");
+                targetInfoText.setText("Cel: brak");
             }
         }
         updatePoiInfoUi();

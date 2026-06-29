@@ -1,16 +1,12 @@
-# Raport zmian - Licznik 3.4
+# Raport zmian - Licznik 3.6 FIX
 
-## Wykonane
+## Naprawiono
 
-1. Dodano pobieranie POI z Overpass API.
-2. Dodano listę POI w pamięci aplikacji.
-3. Dodano kafelek POI pod kompasem.
-4. Kliknięcie kafelka przełącza na kolejny punkt.
-5. Automatyczne przełączenie punktu co 3 minuty.
-6. Długie przytrzymanie kafelka ustawia punkt jako cel kompasu.
-7. Dodano sortowanie POI według odległości.
-8. Dodano deduplikację zbliżonych lub identycznie nazwanych punktów.
-9. Dodano typy: stacja, sklep, schronisko, kemping, parking, apteka, restauracja, kawiarnia, szpital, policja, punkt widokowy.
+- `MainActivity.java` miał wersję 3.5, a skrypt wymagał 3.6. Poprawiono na 3.6.
+- Dodano realną obsługę czujników kompasu:
+  - `Sensor.TYPE_ROTATION_VECTOR`,
+  - fallback: `TYPE_ACCELEROMETER` + `TYPE_MAGNETIC_FIELD`,
+  - `GeomagneticField` dla deklinacji magnetycznej.
 
 ## Zmienione pliki
 

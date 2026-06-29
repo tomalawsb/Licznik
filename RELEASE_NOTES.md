@@ -1,23 +1,10 @@
-# Licznik jazdy 3.4 - 2906261015
+# Licznik jazdy 3.6 - 2906261055
 
-## Dodano
+## Poprawki
 
-- Kafelek najbliższego POI pod kompasem.
-- Automatyczne pobieranie punktów POI z OpenStreetMap przez Overpass API.
-- Automatyczne przełączanie punktu co 3 minuty.
-- Ręczne przełączanie punktu po dotknięciu kafelka.
-- Ustawianie POI jako celu kompasu po dłuższym przytrzymaniu kafelka.
-- Odległość i strzałka kierunku przy POI.
-
-## Obsługiwane punkty
-
-- stacje paliw,
-- sklepy,
-- schroniska,
-- kempingi,
-- parkingi,
-- apteki,
-- restauracje/kawiarnie,
-- szpitale,
-- policja,
-- punkty widokowe/informacja turystyczna.
+- Naprawiono błąd paczki: `MainActivity.java nie ma wersji 3.6`.
+- Dodano czujnikowy kompas oparty o `rotation vector`.
+- Dodano fallback: akcelerometr + magnetometr.
+- Dodano korektę deklinacji magnetycznej.
+- Dodano płynne wygładzanie ruchu igieł kompasu.
+- Wskaźnik celu jest liczony względem kierunku telefonu.

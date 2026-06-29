@@ -1,5 +1,5 @@
 ﻿# URUCHOM_WSZYSTKO.ps1
-# Licznik jazdy 3.4
+# Licznik jazdy 3.6
 # FIX-DROPBOX:
 # Gdy projekt jest w Dropbox/OneDrive, Git czasem nie moze zapisac plikow .git/objects/pack.
 # Dlatego klon roboczy tworzony jest poza Dropboxem: w %LOCALAPPDATA%\Temp.
@@ -12,7 +12,7 @@ Set-Location $Root
 
 $RepoUrl = "https://github.com/tomalawsb/Licznik.git"
 $BranchName = "main"
-$VersionApk = "Licznik-v3.4-2906261015.apk"
+$VersionApk = "Licznik-v3.6-2906261055.apk"
 
 function Fail([string]$Message) {
     Write-Host ""
@@ -54,8 +54,8 @@ if (!(Get-Command git -ErrorAction SilentlyContinue)) {
 }
 
 $Main = Get-Content ".\app\src\main\java\pl\tomalawsb\licznik\MainActivity.java" -Raw
-if ($Main -notmatch 'VERSION_NAME = "3\.4 - 2906261015"') {
-    Fail "MainActivity.java nie ma wersji 3.4."
+if ($Main -notmatch 'VERSION_NAME = "3\.6 - 2906261055"') {
+    Fail "MainActivity.java nie ma wersji 3.6."
 }
 if ($Main -notmatch 'R\.drawable\.kompas_tarcza') {
     Fail "Nie znaleziono nowego kompasu warstwowego w MainActivity.java."
@@ -66,7 +66,7 @@ if ($Workflow -notmatch 'gradle assembleRelease') {
     Fail "Workflow nie buduje APK z kodu."
 }
 if ($Workflow -notmatch [regex]::Escape($VersionApk)) {
-    Fail "Workflow nie publikuje APK 3.4."
+    Fail "Workflow nie publikuje APK 3.6."
 }
 
 $env:GIT_TERMINAL_PROMPT = "0"
@@ -94,7 +94,7 @@ if ($UseCurrentRepo) {
         New-Item -ItemType Directory -Path $TempBase -Force | Out-Null
     }
 
-    $PublishDir = Join-Path $TempBase ("Licznik_publish_v34_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
+    $PublishDir = Join-Path $TempBase ("Licznik_publish_v36_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
 
     Info "Klonuje repo do: $PublishDir"
     git clone $RepoUrl $PublishDir
@@ -111,7 +111,7 @@ if ($UseCurrentRepo) {
     Set-Location $Root
 
     Info "Kopiuje poprawiony projekt do klonu roboczego..."
-    robocopy $Root $PublishDir /E /XD ".git" ".gradle" "build" "app\build" "Licznik_publish_v34_*" /XF "*.apk" | Out-Host
+    robocopy $Root $PublishDir /E /XD ".git" ".gradle" "build" "app\build" "Licznik_publish_v36_*" /XF "*.apk" | Out-Host
     if ($LASTEXITCODE -gt 7) {
         Fail "Robocopy nie skopiowal poprawnie projektu do klonu."
     }
@@ -128,7 +128,7 @@ if ([string]::IsNullOrWhiteSpace($Origin)) {
 git status | Out-Host
 git add .
 
-git commit -m "Licznik 3.4: punkty POI pod kompasem"
+git commit -m "Licznik 3.6: plynny precyzyjny kompas"
 $CommitExit = $LASTEXITCODE
 if ($CommitExit -ne 0) {
     Write-Host "Brak nowych zmian do commita albo commit juz istnieje. Probuje wyslac aktualny stan." -ForegroundColor Yellow
