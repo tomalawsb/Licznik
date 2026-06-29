@@ -1,8 +1,7 @@
 ﻿# URUCHOM_WSZYSTKO.ps1
-# Licznik jazdy 3.10
-# FIX-DROPBOX:
-# Gdy projekt jest w Dropbox/OneDrive, Git czasem nie moze zapisac plikow .git/objects/pack.
-# Dlatego klon roboczy tworzony jest poza Dropboxem: w %LOCALAPPDATA%\Temp.
+# Licznik jazdy 3.10 - FIX WORKFLOW
+# Poprawia plik GitHub Actions i wysyla projekt na GitHub.
+# Klon roboczy jest tworzony poza Dropboxem/OneDrive: %LOCALAPPDATA%\Temp.
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -22,13 +21,8 @@ function Fail([string]$Message) {
     exit 1
 }
 
-function Info([string]$Message) {
-    Write-Host $Message -ForegroundColor Cyan
-}
-
-function Ok([string]$Message) {
-    Write-Host $Message -ForegroundColor Green
-}
+function Info([string]$Message) { Write-Host $Message -ForegroundColor Cyan }
+function Ok([string]$Message) { Write-Host $Message -ForegroundColor Green }
 
 $Required = @(
     ".\settings.gradle",
@@ -37,37 +31,27 @@ $Required = @(
     ".\app\src\main\AndroidManifest.xml",
     ".\app\src\main\java\pl\tomalawsb\licznik\MainActivity.java",
     ".\app\src\main\java\pl\tomalawsb\licznik\RouteMapView.java",
-    ".\app\src\main\res\drawable-nodpi\kompas_tarcza.png",
-    ".\app\src\main\res\drawable-nodpi\kompas_igla_glowna.png",
-    ".\app\src\main\res\drawable-nodpi\kompas_wskaznik_celu.png",
     ".\.github\workflows\android-build.yml"
 )
 
 foreach ($Path in $Required) {
-    if (!(Test-Path $Path)) {
-        Fail "Brak pliku: $Path"
-    }
+    if (!(Test-Path $Path)) { Fail "Brak pliku: $Path" }
 }
 
-if (!(Get-Command git -ErrorAction SilentlyContinue)) {
-    Fail "Nie znaleziono git w PATH."
-}
+if (!(Get-Command git -ErrorAction SilentlyContinue)) { Fail "Nie znaleziono git w PATH." }
 
 $Main = Get-Content ".\app\src\main\java\pl\tomalawsb\licznik\MainActivity.java" -Raw
-if ($Main -notmatch 'VERSION_NAME = "3\.10 - 2906261325"') {
-    Fail "MainActivity.java nie ma wersji 3.10."
-}
-if ($Main -notmatch 'R\.drawable\.kompas_tarcza') {
-    Fail "Nie znaleziono nowego kompasu warstwowego w MainActivity.java."
-}
+if ($Main -notmatch 'VERSION_NAME = "3\.10 - 2906261325"') { Fail "MainActivity.java nie ma wersji 3.10." }
+
+$Gradle = Get-Content ".\app\build.gradle" -Raw
+if ($Gradle -notmatch "versionCode 31000") { Fail "app/build.gradle nie ma versionCode 31000." }
+if ($Gradle -notmatch "versionName '3\.10 - 2906261325'") { Fail "app/build.gradle nie ma versionName 3.10." }
 
 $Workflow = Get-Content ".\.github\workflows\android-build.yml" -Raw
-if ($Workflow -notmatch 'gradle assembleRelease') {
-    Fail "Workflow nie buduje APK z kodu."
-}
-if ($Workflow -notmatch [regex]::Escape($VersionApk)) {
-    Fail "Workflow nie publikuje APK 3.10."
-}
+if ($Workflow -match "printf '\r?\n") { Fail "Workflow ma stary bledny printf rozbijajacy YAML. Uzyj tej poprawionej paczki." }
+if ($Workflow -notmatch 'softprops/action-gh-release@v2') { Fail "Workflow nie ma poprawionego publikowania Release." }
+if ($Workflow -notmatch 'gradle assembleRelease') { Fail "Workflow nie buduje APK z kodu." }
+if ($Workflow -notmatch [regex]::Escape($VersionApk)) { Fail "Workflow nie publikuje APK 3.10." }
 
 $env:GIT_TERMINAL_PROMPT = "0"
 $env:GCM_INTERACTIVE = "Never"
@@ -79,75 +63,53 @@ if ($UseCurrentRepo) {
     Info "Folder jest repozytorium Git - wysylam bezposrednio z tego folderu."
     $PublishDir = $Root
 } else {
-    Info "Ten folder nie ma .git."
-    Info "Tworze klon roboczy poza Dropboxem/OneDrive: w folderze TEMP."
+    Info "Ten folder nie ma .git. Tworze klon roboczy poza Dropboxem/OneDrive."
 
-    if ($env:LOCALAPPDATA) {
-        $TempBase = Join-Path $env:LOCALAPPDATA "Temp"
-    } elseif ($env:TEMP) {
-        $TempBase = $env:TEMP
-    } else {
-        $TempBase = "C:\Temp"
-    }
+    if ($env:LOCALAPPDATA) { $TempBase = Join-Path $env:LOCALAPPDATA "Temp" }
+    elseif ($env:TEMP) { $TempBase = $env:TEMP }
+    else { $TempBase = "C:\Temp" }
 
-    if (!(Test-Path $TempBase)) {
-        New-Item -ItemType Directory -Path $TempBase -Force | Out-Null
-    }
+    if (!(Test-Path $TempBase)) { New-Item -ItemType Directory -Path $TempBase -Force | Out-Null }
 
-    $PublishDir = Join-Path $TempBase ("Licznik_publish_v310_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
+    $PublishDir = Join-Path $TempBase ("Licznik_publish_v310_fix_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
 
     Info "Klonuje repo do: $PublishDir"
     git clone $RepoUrl $PublishDir
-    if ($LASTEXITCODE -ne 0) {
-        Fail "Nie udalo sie sklonowac repozytorium. Jesli ten blad sie powtorzy, uruchom PowerShell jako administrator albo sprawdz antywirusa."
-    }
+    if ($LASTEXITCODE -ne 0) { Fail "Nie udalo sie sklonowac repozytorium." }
 
     Set-Location $PublishDir
     git checkout $BranchName
-    if ($LASTEXITCODE -ne 0) {
-        Fail "Nie udalo sie przelaczyc na branch main."
-    }
+    if ($LASTEXITCODE -ne 0) { Fail "Nie udalo sie przelaczyc na branch main." }
 
     Set-Location $Root
-
     Info "Kopiuje poprawiony projekt do klonu roboczego..."
-    robocopy $Root $PublishDir /E /XD ".git" ".gradle" "build" "app\build" "Licznik_publish_v310_*" /XF "*.apk" | Out-Host
-    if ($LASTEXITCODE -gt 7) {
-        Fail "Robocopy nie skopiowal poprawnie projektu do klonu."
-    }
+    robocopy $Root $PublishDir /E /XD ".git" ".gradle" "build" "app\build" "Licznik_publish_*" /XF "*.apk" | Out-Host
+    if ($LASTEXITCODE -gt 7) { Fail "Robocopy nie skopiowal poprawnie projektu do klonu." }
 }
 
 Set-Location $PublishDir
 
 $Origin = ""
 try { $Origin = (git remote get-url origin) } catch { $Origin = "" }
-if ([string]::IsNullOrWhiteSpace($Origin)) {
-    git remote add origin $RepoUrl
-}
+if ([string]::IsNullOrWhiteSpace($Origin)) { git remote add origin $RepoUrl }
 
 git status | Out-Host
 git add .
 
-git commit -m "Licznik 3.10: profil kalorii wiek wzrost plec"
+git commit -m "Licznik 3.10: napraw workflow i profil kalorii"
 $CommitExit = $LASTEXITCODE
 if ($CommitExit -ne 0) {
     Write-Host "Brak nowych zmian do commita albo commit juz istnieje. Probuje wyslac aktualny stan." -ForegroundColor Yellow
 }
 
 git push origin $BranchName
-if ($LASTEXITCODE -ne 0) {
-    Fail "Nie udalo sie wyslac zmian na GitHub. Sprawdz uprawnienia i zapisane logowanie Git."
-}
+if ($LASTEXITCODE -ne 0) { Fail "Nie udalo sie wyslac zmian na GitHub." }
 
 Write-Host ""
 Ok "GOTOWE."
 Ok "Zmiany wyslane na GitHub."
 Ok "GitHub Actions zbuduje APK: $VersionApk"
 Write-Host ""
-Write-Host "Klon roboczy zostal tutaj:" -ForegroundColor Yellow
-Write-Host $PublishDir -ForegroundColor Yellow
+Write-Host "Teraz wejdz w Actions i sprawdz najnowszy run. Ma byc zielony." -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Sprawdz zakladke Actions albo Release w repozytorium." -ForegroundColor Cyan
-Write-Host ""
-
 pause
