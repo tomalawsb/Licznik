@@ -16,4 +16,4 @@ Uruchom:
 ./URUCHOM_WSZYSTKO.ps1
 
 Po udanym runie Actions powstanie:
-Licznik-v3.10-2906261325.apk
+Licznik-v3.10.1-290626-tabs-fix.apk

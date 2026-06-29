@@ -1,10 +1,11 @@
-# Licznik jazdy 3.10 - 2906261325
+# Licznik jazdy 3.10.1 - 290626-tabs-fix
 
-## Dodano
+## Naprawiono
 
-- wzrost w profilu kalorii,
-- wiek w profilu kalorii,
-- płeć M/K w profilu kalorii,
-- dokładniejsze liczenie kalorii z BMR i MET.
+- crash / wywalanie aplikacji przy przechodzeniu na zakładki Profil, Historia i Postępy,
+- podwójne otwieranie mapy po kliknięciu mini-mapy,
+- ciężkie ładowanie Historii przez tworzenie wielu map naraz,
+- ryzyko blokady całej Historii przez pojedynczy błędny wpis,
+- aktualizację pełnej mapy aktualnej trasy podczas jazdy.
 
-APK: `Licznik-v3.10-2906261325.apk`
+APK: `Licznik-v3.10.1-290626-tabs-fix.apk`

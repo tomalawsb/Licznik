@@ -17,9 +17,9 @@ from androguard.core.apk import APK
 from androguard.core.dex import DEX
 
 EXPECTED_PACKAGE = "pl.tomalawsb.licznik"
-EXPECTED_VERSION_NAME = "3.1 - 1606260712"
-EXPECTED_VERSION_CODE = 30100
-EXPECTED_RELEASE_TAG = "v3.1-1606260712"
+EXPECTED_VERSION_NAME = "3.10.1 - 290626-tabs-fix"
+EXPECTED_VERSION_CODE = 31001
+EXPECTED_RELEASE_TAG = "v3.10.1-290626-tabs-fix"
 BASELINE_NAME = "Licznik-v2.9-1406262155.apk"
 EXPECTED_CERT_SHA256 = "75:B1:97:F8:24:19:C2:4E:78:C9:F6:BD:CD:A0:E6:5F:CF:AB:33:1A:B0:2E:A1:46:5A:C3:1B:D9:73:B6:1E:3A"
 
@@ -242,7 +242,7 @@ def main() -> int:
             ("Kompas 2 dp wyżej", "v3, 6" in speed, "topMargin=6 dp"),
             ("Kompas 2 dp w prawo", "v3, 2" in speed, "rightMargin=2 dp"),
             ("Dolny panel 83 dp", "v3, 83" in build_ui, "83 dp"),
-            ("Aktualizator rozpoznaje versionCode 30100", "v5, 30100" in update, "v5, 30100"),
+            ("Aktualizator rozpoznaje versionCode 31001", "v5, 31001" in update, "v5, 31001"),
             ("Tag wydania v3.1", EXPECTED_RELEASE_TAG in strings, EXPECTED_RELEASE_TAG),
         ])
     except Exception as exc:

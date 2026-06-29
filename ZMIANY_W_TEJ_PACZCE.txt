@@ -1,6 +1,8 @@
-POPRAWKA PACZKI
-- Dodano aktualizację .github/workflows/android-build.yml.
-- Release ma teraz tag v2.7-1406262027.
-- APK ma nazwę Licznik-v2.7-1406262027.apk.
-- Dodano kontrolę, która zatrzyma skrypt, jeśli gdziekolwiek pozostanie wersja 2.6.
-- Dodano automatyczną kopię bezpieczeństwa.
+POPRAWKA 3.10.1
+
+- Naprawiono podwójne kliknięcie mini-mapy.
+- Naprawiono ryzyko crasha po przejściu z Jazdy na Profil / Historię / Postępy.
+- Historia nie ładuje już wielu map naraz w ScrollView.
+- Dodano przycisk „Pokaż mapę trasy” w historii zamiast ciężkiej mini-mapy w każdej karcie.
+- Zmieniono wersję na 3.10.1 - 290626-tabs-fix / versionCode 31001.
+- Zaktualizowano workflow GitHub Actions i URUCHOM_WSZYSTKO.ps1.

@@ -1,29 +1,29 @@
-LICZNIK 2.7 — POPRAWIONA PACZKA
+LICZNIK 3.10.1 — POPRAWKA ZAKŁADEK I HISTORII
 
-Ta paczka naprawia również błąd mechanizmu aktualizacji.
+Ta paczka naprawia problem wywalania aplikacji przy przechodzeniu na zakładki Profil / Historia / Postępy.
 
-CO NAPRAWIA:
-1. Interfejs 2.7 i kompas PNG z prawdziwym kanałem alfa.
-2. Większą mapę i centrowanie bieżącej lokalizacji.
-3. Usunięcie „Ostatnich jazd” z ekranu głównego.
-4. Wersję aplikacji:
-   - VERSION_NAME: 2.7 - 1406262027
-   - CURRENT_RELEASE_TAG: v2.7-1406262027
-   - CURRENT_VERSION_CODE: 20700
-5. app/build.gradle:
-   - versionCode 20700
-   - versionName '2.7 - 1406262027'
-6. .github/workflows/android-build.yml:
-   - publikuje Release v2.7-1406262027
-   - tworzy Licznik-v2.7-1406262027.apk
-   - nie publikuje już błędnie wersji 2.6
+CO ZMIENIONO:
+1. MainActivity.java
+   - dodano czyszczenie referencji do widoków ekranu Jazda po przejściu na inne zakładki,
+   - zabezpieczono odbiornik aktualizacji GPS przed pracą na usuniętej mini-mapie,
+   - odciążono Historię: lista nie tworzy już osobnej mapy dla każdego wpisu,
+   - pojedynczy uszkodzony wpis historii nie powinien blokować całej zakładki,
+   - pełna mapa aktualnej trasy może aktualizować punkty podczas jazdy.
 
-UŻYCIE:
-1. Rozpakuj CAŁĄ zawartość ZIP bezpośrednio do głównego folderu projektu Licznik.
-2. Potwierdź zastąpienie plików, jeżeli Windows o to zapyta.
-3. Uruchom uruchom_poprawki.ps1.
-4. Po komunikacie GOTOWE uruchom swój upload_to_github.ps1.
-5. Poczekaj na zielony Build Android APK.
-6. W aplikacji 2.6 wybierz „Sprawdź aktualizację”.
+2. RouteMapView.java
+   - poprawiono performClick(), żeby kliknięcie mapy nie odpalało akcji dwa razy.
 
-Skrypt tworzy kopię bezpieczeństwa zmienianych plików.
+3. Wersja aplikacji
+   - VERSION_NAME: 3.10.1 - 290626-tabs-fix
+   - CURRENT_RELEASE_TAG: v3.10.1-290626-tabs-fix
+   - CURRENT_VERSION_CODE: 31001
+
+4. GitHub Actions / skrypt publikacji
+   - APK po buildzie: Licznik-v3.10.1-290626-tabs-fix.apk
+   - Release: v3.10.1-290626-tabs-fix
+
+JAK UŻYĆ:
+1. Rozpakuj paczkę.
+2. Uruchom URUCHOM_WSZYSTKO.ps1 z głównego katalogu projektu.
+3. Skrypt wyśle kod na GitHub.
+4. GitHub Actions zbuduje APK.

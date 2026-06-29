@@ -1,20 +1,15 @@
-# Licznik jazdy 3.10
+# Licznik jazdy 3.10.1
 
-Wersja: **3.10 - 2906261325**  
-`versionCode`: **31000**
+Wersja: **3.10.1 - 290626-tabs-fix**  
+`versionCode`: **31001**
 
-## Poprawiono profil kalorii
+## Co poprawiono
 
-W ustawieniach można wpisać:
-
-- masa ciała,
-- wzrost,
-- wiek,
-- płeć: M/K,
-- korekta kalorii w %.
-
-Kalorie są liczone z MET jazdy rowerowej oraz spoczynkowego zapotrzebowania wyliczonego ze wzoru Mifflin-St Jeor. Dzięki temu wzrost, wiek i płeć wpływają na wynik.
+- Przejście na zakładki Profil / Historia / Postępy nie powinno już wywalać aplikacji.
+- Kliknięcie mapy nie powinno już otwierać jej podwójnie.
+- Historia została odciążona: zamiast wielu map naraz pokazuje przycisk „Pokaż mapę trasy”.
+- Pełna mapa aktualnej trasy może aktualizować przebieg podczas jazdy.
 
 APK po GitHub Actions:
 
-`Licznik-v3.10-2906261325.apk`
+`Licznik-v3.10.1-290626-tabs-fix.apk`

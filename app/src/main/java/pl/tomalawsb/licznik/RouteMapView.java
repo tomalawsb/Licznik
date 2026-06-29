@@ -112,9 +112,7 @@ public class RouteMapView extends FrameLayout {
     }
 
     @Override public boolean performClick() {
-        super.performClick();
-        if (externalClickListener != null) externalClickListener.onClick(this);
-        return true;
+        return super.performClick();
     }
 
     public void setInteractive(boolean enabled) {

@@ -60,9 +60,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.10 - 2906261325";
-    public static final String CURRENT_RELEASE_TAG = "v3.10-2906261325";
-    public static final int CURRENT_VERSION_CODE = 31000;
+    public static final String VERSION_NAME = "3.10.1 - 290626-tabs-fix";
+    public static final String CURRENT_RELEASE_TAG = "v3.10.1-290626-tabs-fix";
+    public static final int CURRENT_VERSION_CODE = 31001;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -236,8 +236,9 @@ public class MainActivity extends android.app.Activity {
                 routeView.setPointsFromJson(pointsJson);
                 if (hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
             }
-            if (activeFullMap != null && hasTargetPoint) {
-                activeFullMap.setTargetPoint(targetLat, targetLon);
+            if (activeFullMap != null) {
+                if (activeFullMapCurrentRoute && pointsJson != null) activeFullMap.setPointsFromJson(pointsJson);
+                if (hasTargetPoint) activeFullMap.setTargetPoint(targetLat, targetLon);
             }
             updateCompassAndTargetUi();
             updateStatus(accuracy);
@@ -500,6 +501,30 @@ public class MainActivity extends android.app.Activity {
         navHistory.setOnClickListener(v -> renderHistory());
         navProgress.setOnClickListener(v -> renderProgress());
         navProfile.setOnClickListener(v -> renderProfile());
+    }
+
+    private void clearRideViewRefs() {
+        statusText = null;
+        speedValueText = null;
+        speedSummaryText = null;
+        distanceText = null;
+        timeText = null;
+        elevationText = null;
+        caloriesText = null;
+        paceText = null;
+
+        routeView = null;
+
+        compassDialView = null;
+        compassNeedleView = null;
+        targetCompassView = null;
+        targetInfoText = null;
+        poiInfoText = null;
+
+        speedHeroWatermark = null;
+        primaryActionButton = null;
+        primaryActionIcon = null;
+        primaryActionLabel = null;
     }
 
     private void renderRide() {
@@ -801,6 +826,7 @@ public class MainActivity extends android.app.Activity {
 
     private void renderHistory() {
         currentTab = 1;
+        clearRideViewRefs();
         updateNav();
         if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
@@ -814,7 +840,11 @@ public class MainActivity extends android.app.Activity {
                 contentBox.addView(empty, new LinearLayout.LayoutParams(-1, dp(140)));
                 return;
             }
-            for (int i = arr.length() - 1; i >= 0; i--) addHistoryCard(arr.getJSONObject(i), i);
+            for (int i = arr.length() - 1; i >= 0; i--) {
+                try {
+                    addHistoryCard(arr.getJSONObject(i), i);
+                } catch (Exception ignored) {}
+            }
         } catch (Exception e) {
             contentBox.addView(text("Nie udało się odczytać historii.", 16, RED, true));
         }
@@ -859,14 +889,14 @@ public class MainActivity extends android.app.Activity {
         String pointsForMap = o.optString("pointsJson", "[]");
         String mapSummary = String.format(Locale.US, "%s  •  %.2f km  •  %s  •  śr. %.3f km/h  •  maks. %.1f km/h",
                 mode, o.optDouble("distanceKm", 0), o.optString("elapsed", "00:00:00"), o.optDouble("avg", 0), o.optDouble("max", 0));
-        RouteMapView rv = new RouteMapView(this);
-        rv.setPointsFromJson(pointsForMap);
-        rv.setOnClickListener(v -> showRouteMapDialog("Szczegóły trasy", pointsForMap, mapSummary));
-        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(-1, dp(104));
-        rvLp.topMargin = dp(8);
-        card.addView(rv, rvLp);
+        TextView openMap = pill("Pokaż mapę trasy", Color.WHITE, BLUE, 13, true);
+        openMap.setGravity(Gravity.CENTER);
+        openMap.setOnClickListener(v -> showRouteMapDialog("Szczegóły trasy", pointsForMap, mapSummary));
+        LinearLayout.LayoutParams mapBtnLp = new LinearLayout.LayoutParams(-1, dp(44));
+        mapBtnLp.topMargin = dp(8);
+        card.addView(openMap, mapBtnLp);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(212));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(152));
         lp.setMargins(0, 0, 0, dp(12));
         contentBox.addView(card, lp);
     }
@@ -898,6 +928,7 @@ public class MainActivity extends android.app.Activity {
 
     private void renderProgress() {
         currentTab = 2;
+        clearRideViewRefs();
         updateNav();
         if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
@@ -931,6 +962,7 @@ public class MainActivity extends android.app.Activity {
 
     private void renderProfile() {
         currentTab = 3;
+        clearRideViewRefs();
         updateNav();
         if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
@@ -1138,7 +1170,7 @@ public class MainActivity extends android.app.Activity {
 
         RouteMapView fullMap = new RouteMapView(this);
         activeFullMap = fullMap;
-        activeFullMapCurrentRoute = false;
+        activeFullMapCurrentRoute = currentRoute;
         fullMap.setInteractive(true);
         fullMap.setAutoFitOnRedraw(false);
         fullMap.setPointsFromJson(pointsJson);

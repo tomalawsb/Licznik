@@ -1,4 +1,4 @@
-name: Build Android APK - Licznik 3.10
+name: Build Android APK - Licznik 3.10.1
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: licznik-v3.10-build
+  group: licznik-v3.10.1-build
   cancel-in-progress: false
 
 jobs:
@@ -38,23 +38,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.10-2906261325.apk
-          sha256sum Licznik-v3.10-2906261325.apk > SHA256SUMS-v3.10.txt
+          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.10.1-290626-tabs-fix.apk
+          sha256sum Licznik-v3.10.1-290626-tabs-fix.apk > SHA256SUMS-v3.10.1.txt
 
       - name: Udostepnij APK jako artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Licznik-v3.10-2906261325-apk
+          name: Licznik-v3.10.1-tabs-fix-apk
           path: |
-            Licznik-v3.10-2906261325.apk
-            SHA256SUMS-v3.10.txt
+            Licznik-v3.10.1-290626-tabs-fix.apk
+            SHA256SUMS-v3.10.1.txt
 
       - name: Opublikuj GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.10-2906261325
-          name: Licznik jazdy 3.10 - profil kalorii
+          tag_name: v3.10.1-290626-tabs-fix
+          name: Licznik jazdy 3.10.1 - naprawa zakładek i historii
           body_path: RELEASE_NOTES.md
           files: |
-            Licznik-v3.10-2906261325.apk
-            SHA256SUMS-v3.10.txt
+            Licznik-v3.10.1-290626-tabs-fix.apk
+            SHA256SUMS-v3.10.1.txt

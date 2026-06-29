@@ -1,1 +1,1 @@
-9e9ea8f657e21b36972708421aee432f74d733a6e400f99582db8fad5c3f817b  Licznik-v3.1-1606260712.apk
+Plik SHA256SUMS-v3.10.1.txt zostanie wygenerowany przez GitHub Actions po zbudowaniu APK.
