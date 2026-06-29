@@ -1,7 +1,12 @@
-# Licznik jazdy 3.8 - 2906261235
+# Licznik jazdy 3.9 - 2906261305
 
-- Naprawione zamykanie dużej mapy jednym dotknięciem.
-- Wyłączone wymuszanie powrotu dużej mapy do aktualnej lokalizacji podczas przesuwania/zoomu.
-- Automatyczna wyszukiwarka POI bez przycisku.
-- Nowa ikona aplikacji.
-- Poprawione obliczanie kalorii: czas jazdy × masa × MET.
+## Dodano
+
+- Ustawienia kalorii:
+  - masa ciała,
+  - korekta spalania w procentach.
+
+## Poprawiono
+
+- Licznik kalorii korzysta z masy zapisanej w ustawieniach.
+- Dodano możliwość ręcznego dopasowania wyniku spalania.

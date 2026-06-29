@@ -24,6 +24,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
@@ -59,9 +60,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.8 - 2906261235";
-    public static final String CURRENT_RELEASE_TAG = "v3.8-2906261235";
-    public static final int CURRENT_VERSION_CODE = 30800;
+    public static final String VERSION_NAME = "3.9 - 2906261305";
+    public static final String CURRENT_RELEASE_TAG = "v3.9-2906261305";
+    public static final int CURRENT_VERSION_CODE = 30900;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -1628,6 +1629,13 @@ public class MainActivity extends android.app.Activity {
         autoUpdate.setOnCheckedChangeListener((buttonView, isChecked) -> prefs().edit().putBoolean("auto_update_check", isChecked).apply());
         box.addView(autoUpdate, new LinearLayout.LayoutParams(-1, dp(46)));
 
+        double weightKg = prefs().getFloat("profile_weight_kg", 82f);
+        float correction = prefs().getFloat("profile_calories_factor", 1.0f);
+        TextView calorieInfo = text(String.format(Locale.US, "Kalorie: %.1f kg • korekta %.0f%%", weightKg, correction * 100f), 14, TEXT, true);
+        calorieInfo.setGravity(Gravity.CENTER_VERTICAL);
+        box.addView(calorieInfo, new LinearLayout.LayoutParams(-1, dp(38)));
+        box.addView(settingsButton("Parametry kalorii", BLUE, v -> showCalorieSettings()));
+
         box.addView(settingsButton("Zmień tryb jazdy", GREEN, v -> chooseModeDialog()));
         box.addView(settingsButton("Sprawdź aktualizację", GREEN, v -> checkForUpdates(true)));
         box.addView(settingsButton("Zezwolenia i ustawienia aplikacji", BLUE, v -> openAppSettings()));
@@ -1638,6 +1646,61 @@ public class MainActivity extends android.app.Activity {
                 .setTitle("Opcje")
                 .setView(box)
                 .setNegativeButton("Zamknij", null)
+                .show();
+    }
+
+
+    private void showCalorieSettings() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(18), dp(8), dp(18), dp(6));
+
+        TextView info = text("Do kalorii wystarczy masa ciała. Korekta pozwala dopasować wynik, gdy licznik zawyża albo zaniża spalanie.", 14, MUTED, false);
+        info.setGravity(Gravity.CENTER_VERTICAL);
+        box.addView(info, new LinearLayout.LayoutParams(-1, dp(76)));
+
+        EditText weightInput = new EditText(this);
+        weightInput.setSingleLine(true);
+        weightInput.setTextSize(18);
+        weightInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        weightInput.setHint("Masa ciała w kg, np. 82");
+        weightInput.setText(String.format(Locale.US, "%.1f", prefs().getFloat("profile_weight_kg", 82f)));
+        box.addView(weightInput, new LinearLayout.LayoutParams(-1, dp(54)));
+
+        EditText correctionInput = new EditText(this);
+        correctionInput.setSingleLine(true);
+        correctionInput.setTextSize(18);
+        correctionInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        correctionInput.setHint("Korekta %, np. 100");
+        correctionInput.setText(String.format(Locale.US, "%.0f", prefs().getFloat("profile_calories_factor", 1.0f) * 100f));
+        box.addView(correctionInput, new LinearLayout.LayoutParams(-1, dp(54)));
+
+        new AlertDialog.Builder(this)
+                .setTitle("Parametry kalorii")
+                .setView(box)
+                .setPositiveButton("Zapisz", (dialog, which) -> {
+                    try {
+                        double weight = Double.parseDouble(weightInput.getText().toString().replace(',', '.').trim());
+                        double correctionPercent = Double.parseDouble(correctionInput.getText().toString().replace(',', '.').trim());
+                        if (weight < 30 || weight > 180) {
+                            Toast.makeText(this, "Masa musi być od 30 do 180 kg.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (correctionPercent < 50 || correctionPercent > 200) {
+                            Toast.makeText(this, "Korekta musi być od 50% do 200%.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        prefs().edit()
+                                .putFloat("profile_weight_kg", (float) weight)
+                                .putFloat("profile_calories_factor", (float) (correctionPercent / 100.0))
+                                .apply();
+                        Toast.makeText(this, "Parametry kalorii zapisane.", Toast.LENGTH_SHORT).show();
+                        showSettings();
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Wpisz poprawne liczby.", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("Anuluj", null)
                 .show();
     }
 
@@ -1811,6 +1874,7 @@ public class MainActivity extends android.app.Activity {
 
         double hours = elapsedMs / 3600000.0;
         double weightKg = prefs().getFloat("profile_weight_kg", 82f);
+        double correction = prefs().getFloat("profile_calories_factor", 1.0f);
         double met;
         if (avgKmh < 10) met = 4.0;
         else if (avgKmh < 16) met = 5.8;
@@ -1819,7 +1883,7 @@ public class MainActivity extends android.app.Activity {
         else if (avgKmh < 26) met = 10.0;
         else met = 12.0;
 
-        long kcal = Math.round(met * weightKg * hours);
+        long kcal = Math.round(met * weightKg * hours * correction);
         return kcal <= 0 ? "--" : kcal + " kcal";
     }
 

@@ -1,8 +1,9 @@
-# Raport zmian - Licznik 3.8
+# Raport zmian - Licznik 3.9
 
-1. `showRouteMapDialog()` przebudowany na własną pełnoekranową nakładkę.
-2. Dodano `closeFullMapOverlay()` — zamknięcie jednym dotknięciem.
-3. `RouteMapView` dostał `setAutoFitOnRedraw(false)`, żeby duża mapa nie wracała automatycznie do pozycji użytkownika.
-4. Usunięto przycisk `Szukaj`; dodano automatyczne wyszukiwanie z opóźnieniem 350 ms.
-5. Zmieniono ikonę launcher na `launcher_icon.png`.
-6. Kalorie zmienione z prostego `28 kcal/km` na szacunek MET zależny od czasu i prędkości.
+## Wykonane
+
+1. Dodano okno `Parametry kalorii` w ustawieniach.
+2. Dodano zapis `profile_weight_kg`.
+3. Dodano zapis `profile_calories_factor`.
+4. Wzór kalorii używa teraz masy i korekty procentowej.
+5. Workflow publikuje APK `Licznik-v3.9-2906261305.apk`.
