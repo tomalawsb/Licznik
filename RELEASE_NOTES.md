@@ -1,11 +1,16 @@
-# Licznik jazdy 3.1 - 1606260712
+# Licznik jazdy 3.2 - 2906260712
 
 ## Zmiany
 
-- Podniesiono wersję do `3.1 - 1606260712`.
-- Podniesiono `versionCode` z `20900` do `30100`.
-- Zachowano pakiet `pl.tomalawsb.licznik`.
-- Zachowano certyfikat podpisujący użyty w dołączonej wersji 2.9.
-- Dodano pełną kryptograficzną kontrolę podpisu APK v2 i skrótu zawartości.
-- Zachowano zmiany interfejsu: kompas 100 dp, przesunięcie o 2 dp oraz panel 83 dp.
-- Dodano lokalny skrypt budowania bez pobierania i wysyłania plików do GitHuba.
+- Kompas został przeniesiony na mapę główną jako nakładka.
+- Nowy kompas używa osobnych warstw PNG: tarcza, igła główna, wskaźnik celu.
+- Wskaźnik celu obraca się niezależnie i pokazuje kierunek do punktu ustawionego na mapie.
+- Na dużej mapie dłuższe przytrzymanie palcem ustawia cel.
+- Pod kompasem wyświetlana jest odległość do celu w linii prostej.
+- Duża mapa aktualizuje pozycję podczas jazdy.
+- Zamknięcie dużej mapy działa jednym kliknięciem.
+- Tekst średniej i maksymalnej prędkości na zielonym panelu zwiększony o 2 punkty.
+
+## Uwaga
+
+Automatyczne POI typu stacje benzynowe/sklepy/schroniska wymaga dodatkowego źródła danych, np. OSM Overpass albo Google Places. Ta wersja przygotowuje mechanizm celu i wskaźnika kompasu dla punktu wybranego ręcznie na mapie.

@@ -18,14 +18,20 @@ import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
+import org.osmdroid.events.MapEventsReceiver;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Polyline;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class RouteMapView extends FrameLayout {
+    public interface OnTargetSelectedListener {
+        void onTargetSelected(double lat, double lon);
+    }
+
     private final MapView mapView;
     private final TextView placeholder;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -33,6 +39,9 @@ public class RouteMapView extends FrameLayout {
     private String lastPointsJson = "[]";
     private boolean interactive = false;
     private OnClickListener externalClickListener;
+    private GeoPoint targetPoint = null;
+    private OnTargetSelectedListener targetSelectedListener = null;
+    private MapEventsOverlay targetEventsOverlay = null;
 
     public RouteMapView(Context context) {
         super(context);
@@ -96,6 +105,7 @@ public class RouteMapView extends FrameLayout {
         mapView.setClickable(enabled);
         if (enabled) {
             mapView.setOnTouchListener(null);
+            ensureTargetEventsOverlay();
         } else {
             mapView.setOnTouchListener((v, event) -> {
                 if (event.getAction() == MotionEvent.ACTION_UP) performClick();
@@ -104,10 +114,50 @@ public class RouteMapView extends FrameLayout {
         }
     }
 
+
+    public void setOnTargetSelectedListener(OnTargetSelectedListener listener) {
+        targetSelectedListener = listener;
+        ensureTargetEventsOverlay();
+    }
+
+    public void setTargetPoint(double lat, double lon) {
+        targetPoint = new GeoPoint(lat, lon);
+        redrawRoute();
+    }
+
+    public void clearTargetPoint() {
+        targetPoint = null;
+        redrawRoute();
+    }
+
+    private void ensureTargetEventsOverlay() {
+        if (!interactive || targetSelectedListener == null) return;
+        if (targetEventsOverlay == null) {
+            targetEventsOverlay = new MapEventsOverlay(new MapEventsReceiver() {
+                @Override public boolean singleTapConfirmedHelper(GeoPoint p) {
+                    return false;
+                }
+
+                @Override public boolean longPressHelper(GeoPoint p) {
+                    if (targetSelectedListener != null && p != null) {
+                        targetSelectedListener.onTargetSelected(p.getLatitude(), p.getLongitude());
+                        return true;
+                    }
+                    return false;
+                }
+            });
+        }
+        if (!mapView.getOverlays().contains(targetEventsOverlay)) {
+            mapView.getOverlays().add(targetEventsOverlay);
+        }
+    }
+
     public void clear() {
         lastPointsJson = "[]";
         routePoints.clear();
         mapView.getOverlays().clear();
+        if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
+        ensureTargetEventsOverlay();
         placeholder.setVisibility(VISIBLE);
         mapView.invalidate();
     }
@@ -166,6 +216,8 @@ public class RouteMapView extends FrameLayout {
     private void redrawRoute() {
         mapView.getOverlays().clear();
         if (routePoints.isEmpty()) {
+  if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
+  ensureTargetEventsOverlay();
   placeholder.setVisibility(VISIBLE);
   mapView.invalidate();
   return;
@@ -192,6 +244,8 @@ public class RouteMapView extends FrameLayout {
   mapView.getOverlays().add(marker(routePoints.get(0), Color.rgb(15, 23, 42)));
         }
         mapView.getOverlays().add(marker(routePoints.get(routePoints.size() - 1), Color.rgb(34, 197, 94)));
+        if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
+        ensureTargetEventsOverlay();
         fitRoute();
     }
 

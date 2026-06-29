@@ -1,26 +1,30 @@
-# Licznik jazdy 3.1
+# Licznik jazdy 3.2
 
-Wersja: **3.1 - 1606260712**  
-`versionCode`: **30100**
+Wersja: **3.2 - 2906260712**  
+`versionCode`: **30200**
 
-## Gotowy plik do instalacji
+## Najważniejsze zmiany
 
-`Licznik-v3.1-1606260712.apk`
+- Kompas przeniesiony na mapę na ekranie głównym.
+- Kompas składa się z osobnych warstw PNG:
+  - `kompas_tarcza.png`,
+  - `kompas_igla_glowna.png`,
+  - `kompas_wskaznik_celu.png`.
+- Wskaźnik celu obraca się niezależnie od głównej igły.
+- Dłuższe przytrzymanie palcem na dużej mapie ustawia punkt docelowy.
+- Pod kompasem pokazuje się odległość do celu w linii prostej.
+- Duża mapa aktualizuje bieżącą pozycję podczas jazdy.
+- Okno dużej mapy zamyka się jednym kliknięciem.
+- Tekst średniej i maksymalnej prędkości na zielonym panelu zwiększony o 2 punkty.
 
-APK został utworzony wyłącznie z plików znajdujących się w przekazanej paczce. Nie pobierano kodu ani APK z GitHuba.
+## Budowanie APK
 
-## Kontrola aktualizacji z wersji 2.9
+Po wrzuceniu projektu na GitHub uruchomi się GitHub Actions i zbuduje:
 
-- pakiet: `pl.tomalawsb.licznik`,
-- wersja bazowa: `20900`,
-- wersja nowa: `30100`,
-- certyfikat podpisu identyczny z dołączonym APK 2.9,
-- podpis APK Signature Scheme v2 sprawdzony kryptograficznie,
-- integralność ZIP i CRC sprawdzona.
+`Licznik-v3.2-2906260712.apk`
 
-Pełny wynik znajduje się w `VALIDATION_RESULTS.txt`.
+Możesz użyć:
 
-## Skrypty
+`URUCHOM_WSZYSTKO.ps1`
 
-- `BUDUJ_TYLKO_LOKALNIE.ps1` — buduje i sprawdza APK bez GitHuba.
-- `URUCHOM_WSZYSTKO.ps1` — zachowany skrypt publikacyjny z otrzymanej paczki; łączy się z GitHubem dopiero po jego ręcznym uruchomieniu przez użytkownika.
+Skrypt robi commit i push do `main`, a APK buduje GitHub Actions.

@@ -43,9 +43,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "2.7 - 1406262027";
-    public static final String CURRENT_RELEASE_TAG = "v2.7-1406262027";
-    public static final int CURRENT_VERSION_CODE = 20700;
+    public static final String VERSION_NAME = "3.2 - 2906260712";
+    public static final String CURRENT_RELEASE_TAG = "v3.2-2906260712";
+    public static final int CURRENT_VERSION_CODE = 30200;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -70,7 +70,17 @@ public class MainActivity extends android.app.Activity {
     private TextView headerModeIcon, speedHeroWatermark;
     private LinearLayout primaryActionButton;
     private RouteMapView routeView;
-    private ImageView compassView;
+    private ImageView compassDialView, compassNeedleView, targetCompassView;
+    private TextView targetInfoText;
+    private RouteMapView activeFullMap;
+    private Dialog activeRouteDialog;
+    private boolean activeFullMapCurrentRoute = false;
+    private boolean hasCurrentLocation = false;
+    private double currentLat = 0;
+    private double currentLon = 0;
+    private boolean hasTargetPoint = false;
+    private double targetLat = 0;
+    private double targetLon = 0;
 
     private String selectedMode = "Rower";
     private boolean running = false;
@@ -114,7 +124,10 @@ public class MainActivity extends android.app.Activity {
             long elapsed = intent.getLongExtra("elapsed", 0);
             double accuracy = intent.getDoubleExtra("accuracy", -1);
             String pointsJson = intent.getStringExtra("pointsJson");
-            if (pointsJson != null) lastPointsJson = pointsJson;
+            if (pointsJson != null) {
+                lastPointsJson = pointsJson;
+                updateCurrentLocationFromPoints(pointsJson);
+            }
             boolean stopped = intent.getBooleanExtra(RideTrackingService.EXTRA_STOPPED, false);
             String serviceMessage = intent.getStringExtra(RideTrackingService.EXTRA_MESSAGE);
             if (stopped && waitingForStopResult) {
@@ -135,7 +148,16 @@ public class MainActivity extends android.app.Activity {
             if (caloriesText != null) caloriesText.setText(formatCalories(distanceKm));
             if (paceText != null) paceText.setText(formatPace(avg));
             if (elevationText != null) elevationText.setText("--");
-            if (routeView != null && pointsJson != null) routeView.setPointsFromJson(pointsJson);
+            if (routeView != null && pointsJson != null) {
+                routeView.setPointsFromJson(pointsJson);
+                if (hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
+            }
+            if (activeFullMap != null && activeFullMapCurrentRoute && pointsJson != null) {
+                activeFullMap.setPointsFromJson(pointsJson);
+                if (hasTargetPoint) activeFullMap.setTargetPoint(targetLat, targetLon);
+                activeFullMap.centerOnLastPoint(17.0);
+            }
+            updateCompassAndTargetUi();
             updateStatus(accuracy);
             updatePrimaryButton();
         }
@@ -147,6 +169,7 @@ public class MainActivity extends android.app.Activity {
         w.setStatusBarColor(BG);
         w.setNavigationBarColor(BG);
         selectedMode = prefs().getString("last_mode", "Rower");
+        loadSavedTargetPoint();
         buildUi();
         enterImmersiveMode();
         registerUpdates();
@@ -281,23 +304,14 @@ public class MainActivity extends android.app.Activity {
     private void buildSpeedHero() {
         FrameLayout hero = new FrameLayout(this);
         hero.setBackground(gradient(GREEN, Color.rgb(0, 126, 89), 20));
-        hero.setPadding(dp(18), dp(9), dp(12), dp(9));
+        hero.setPadding(dp(18), dp(9), dp(18), dp(9));
         hero.setElevation(dp(2));
 
         speedHeroWatermark = null;
-        compassView = new ImageView(this);
-        compassView.setImageResource(R.drawable.compass_north);
-        compassView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        compassView.setContentDescription("Kompas wskazujący północ");
-        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(92), dp(92), Gravity.TOP | Gravity.RIGHT);
-        compassLp.topMargin = dp(8);
-        compassLp.rightMargin = dp(4);
-        hero.addView(compassView, compassLp);
 
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setGravity(Gravity.LEFT);
-        column.setPadding(0, 0, dp(92), 0);
         hero.addView(column, new FrameLayout.LayoutParams(-1, -1));
 
         TextView label = text("◴  AKTUALNA PRĘDKOŚĆ", 13, Color.rgb(215, 250, 229), true);
@@ -313,7 +327,7 @@ public class MainActivity extends android.app.Activity {
         speedLine.addView(unit, new LinearLayout.LayoutParams(-2, dp(66)));
         column.addView(speedLine, new LinearLayout.LayoutParams(-1, dp(66)));
 
-        speedSummaryText = text("Średnia: 0.000 km/h  •  Maks: 0.0 km/h", 15, Color.rgb(229, 250, 237), true);
+        speedSummaryText = text("Średnia: 0.000 km/h  •  Maks: 0.0 km/h", 17, Color.rgb(229, 250, 237), true);
         speedSummaryText.setSingleLine(true);
         speedSummaryText.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
         column.addView(speedSummaryText, new LinearLayout.LayoutParams(-1, dp(38)));
@@ -373,6 +387,12 @@ public class MainActivity extends android.app.Activity {
         statusLp.topMargin = dp(10);
         mapFrame.addView(statusText, statusLp);
 
+        View compassOverlay = buildCompassOverlay();
+        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(132), dp(150), Gravity.TOP | Gravity.RIGHT);
+        compassLp.topMargin = dp(8);
+        compassLp.rightMargin = dp(8);
+        mapFrame.addView(compassOverlay, compassLp);
+
         card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(220)));
 
         LinearLayout extras = new LinearLayout(this);
@@ -387,6 +407,49 @@ public class MainActivity extends android.app.Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(286));
         lp.setMargins(0, 0, 0, dp(10));
         contentBox.addView(card, lp);
+
+        updateCompassAndTargetUi();
+    }
+
+    private View buildCompassOverlay() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(6), dp(5), dp(6), dp(5));
+        box.setBackground(round(Color.argb(168, 10, 22, 30), 18, Color.argb(110, 255, 255, 255), 1));
+        box.setClickable(true);
+        box.setOnClickListener(v -> {
+            if (hasTargetPoint) {
+                Toast.makeText(this, "Cel: " + formatDistanceMeters(distanceMeters(currentLat, currentLon, targetLat, targetLon)), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Dotknij mapy i przytrzymaj palec, żeby ustawić cel.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        FrameLayout stack = new FrameLayout(this);
+        compassDialView = new ImageView(this);
+        compassDialView.setImageResource(R.drawable.kompas_tarcza);
+        compassDialView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        stack.addView(compassDialView, new FrameLayout.LayoutParams(-1, -1));
+
+        compassNeedleView = new ImageView(this);
+        compassNeedleView.setImageResource(R.drawable.kompas_igla_glowna);
+        compassNeedleView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        stack.addView(compassNeedleView, new FrameLayout.LayoutParams(-1, -1));
+
+        targetCompassView = new ImageView(this);
+        targetCompassView.setImageResource(R.drawable.kompas_wskaznik_celu);
+        targetCompassView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
+        stack.addView(targetCompassView, new FrameLayout.LayoutParams(-1, -1));
+
+        box.addView(stack, new LinearLayout.LayoutParams(dp(96), dp(96)));
+
+        targetInfoText = text("Przytrzymaj mapę\naby ustawić cel", 10, Color.WHITE, true);
+        targetInfoText.setGravity(Gravity.CENTER);
+        targetInfoText.setSingleLine(false);
+        box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(40)));
+        return box;
     }
 
     private TextView buildMiniMetric(LinearLayout parent, String icon, String label, String value, int accent) {
@@ -741,18 +804,22 @@ public class MainActivity extends android.app.Activity {
     private void showRouteMapDialog(String title, String pointsJson, String summary) {
         boolean currentRoute = "Aktualna trasa".equals(title);
         try {
-  JSONArray arr = new JSONArray(pointsJson == null ? "[]" : pointsJson);
-  int requiredPoints = currentRoute ? 1 : 2;
-  if (arr.length() < requiredPoints) {
-      Toast.makeText(this, "Brak lokalizacji lub trasy do pokazania na mapie.", Toast.LENGTH_SHORT).show();
-      return;
-  }
+            JSONArray arr = new JSONArray(pointsJson == null ? "[]" : pointsJson);
+            int requiredPoints = currentRoute ? 1 : 2;
+            if (arr.length() < requiredPoints) {
+                Toast.makeText(this, "Brak lokalizacji lub trasy do pokazania na mapie.", Toast.LENGTH_SHORT).show();
+                return;
+            }
         } catch (Exception e) {
-  Toast.makeText(this, "Nie udało się otworzyć trasy.", Toast.LENGTH_SHORT).show();
-  return;
+            Toast.makeText(this, "Nie udało się otworzyć trasy.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
         Dialog d = new Dialog(this);
+        d.setCanceledOnTouchOutside(false);
+        activeRouteDialog = d;
+        activeFullMapCurrentRoute = currentRoute;
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
@@ -771,13 +838,16 @@ public class MainActivity extends android.app.Activity {
         top.addView(closeBtn, closeLp);
         root.addView(top, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        TextView hint = text(summary == null ? "Przesuwaj mapę palcem, przybliżaj dwoma palcami." : summary + "\nPrzesuwaj mapę palcem, przybliżaj dwoma palcami.", 12, MUTED, false);
+        TextView hint = text((summary == null ? "" : summary + "\n") + "Przytrzymaj palec na mapie, żeby ustawić cel kompasu.", 12, MUTED, false);
         hint.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(hint, new LinearLayout.LayoutParams(-1, dp(48)));
+        root.addView(hint, new LinearLayout.LayoutParams(-1, dp(54)));
 
         RouteMapView fullMap = new RouteMapView(this);
+        activeFullMap = fullMap;
         fullMap.setInteractive(true);
         fullMap.setPointsFromJson(pointsJson);
+        if (hasTargetPoint) fullMap.setTargetPoint(targetLat, targetLon);
+        fullMap.setOnTargetSelectedListener((lat, lon) -> setTargetPoint(lat, lon));
         root.addView(fullMap, new LinearLayout.LayoutParams(-1, 0, 1));
 
         TextView closeBottom = settingsButton("Zamknij", GREEN, v -> d.dismiss());
@@ -787,19 +857,109 @@ public class MainActivity extends android.app.Activity {
 
         closeBtn.setOnClickListener(v -> d.dismiss());
         fitBtnTop.setOnClickListener(v -> {
-  if (currentRoute) fullMap.centerOnLastPoint(17.0);
-  else fullMap.fitRoute();
+            if (currentRoute) fullMap.centerOnLastPoint(17.0);
+            else fullMap.fitRoute();
+        });
+        d.setOnDismissListener(x -> {
+            if (activeRouteDialog == d) activeRouteDialog = null;
+            if (activeFullMap == fullMap) activeFullMap = null;
+            activeFullMapCurrentRoute = false;
         });
         d.setOnShowListener(x -> {
-  Window win = d.getWindow();
-  if (win != null) {
-      win.setLayout(-1, -1);
-      win.setBackgroundDrawableResource(android.R.color.transparent);
-  }
-  if (currentRoute) fullMap.centerOnLastPoint(17.0);
-  else fullMap.fitRoute();
+            Window win = d.getWindow();
+            if (win != null) {
+                win.setLayout(-1, -1);
+                win.setBackgroundDrawableResource(android.R.color.transparent);
+            }
+            if (currentRoute) fullMap.centerOnLastPoint(17.0);
+            else fullMap.fitRoute();
         });
         d.show();
+    }
+
+
+    private void updateCurrentLocationFromPoints(String pointsJson) {
+        try {
+            JSONArray arr = new JSONArray(pointsJson == null ? "[]" : pointsJson);
+            if (arr.length() == 0) return;
+            JSONArray p = arr.getJSONArray(arr.length() - 1);
+            currentLat = p.getDouble(0);
+            currentLon = p.getDouble(1);
+            hasCurrentLocation = true;
+        } catch (Exception ignored) {}
+    }
+
+    private void setTargetPoint(double lat, double lon) {
+        targetLat = lat;
+        targetLon = lon;
+        hasTargetPoint = true;
+        prefs().edit()
+                .putBoolean("has_target_point", true)
+                .putFloat("target_lat", (float) lat)
+                .putFloat("target_lon", (float) lon)
+                .apply();
+        if (routeView != null) routeView.setTargetPoint(lat, lon);
+        if (activeFullMap != null) activeFullMap.setTargetPoint(lat, lon);
+        updateCompassAndTargetUi();
+        Toast.makeText(this, "Cel ustawiony. Wskaźnik kompasu prowadzi do punktu.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void loadSavedTargetPoint() {
+        if (!prefs().getBoolean("has_target_point", false)) return;
+        targetLat = prefs().getFloat("target_lat", 0);
+        targetLon = prefs().getFloat("target_lon", 0);
+        hasTargetPoint = true;
+    }
+
+    private void updateCompassAndTargetUi() {
+        if (routeView != null && hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
+        if (targetCompassView != null) {
+            targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
+            if (hasTargetPoint && hasCurrentLocation) {
+                targetCompassView.setRotation((float) bearingDegrees(currentLat, currentLon, targetLat, targetLon));
+            } else {
+                targetCompassView.setRotation(0f);
+            }
+        }
+        if (compassNeedleView != null) {
+            compassNeedleView.setRotation(0f);
+        }
+        if (targetInfoText != null) {
+            if (hasTargetPoint && hasCurrentLocation) {
+                double meters = distanceMeters(currentLat, currentLon, targetLat, targetLon);
+                targetInfoText.setText("Cel: " + formatDistanceMeters(meters) + "\nw linii prostej");
+            } else if (hasTargetPoint) {
+                targetInfoText.setText("Cel ustawiony\nczekam na GPS");
+            } else {
+                targetInfoText.setText("Przytrzymaj mapę\naby ustawić cel");
+            }
+        }
+    }
+
+    private double distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+        double r = 6371000.0;
+        double f1 = Math.toRadians(lat1);
+        double f2 = Math.toRadians(lat2);
+        double df = Math.toRadians(lat2 - lat1);
+        double dl = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(df / 2) * Math.sin(df / 2)
+                + Math.cos(f1) * Math.cos(f2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private double bearingDegrees(double lat1, double lon1, double lat2, double lon2) {
+        double f1 = Math.toRadians(lat1);
+        double f2 = Math.toRadians(lat2);
+        double dl = Math.toRadians(lon2 - lon1);
+        double y = Math.sin(dl) * Math.cos(f2);
+        double x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
+        double brng = Math.toDegrees(Math.atan2(y, x));
+        return (brng + 360.0) % 360.0;
+    }
+
+    private String formatDistanceMeters(double meters) {
+        if (meters < 1000) return String.format(Locale.US, "%.0f m", meters);
+        return String.format(Locale.US, "%.2f km", meters / 1000.0);
     }
 
     private String compactFirstLine(TextView t) {
