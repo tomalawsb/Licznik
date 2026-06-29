@@ -1,12 +1,10 @@
-# Licznik jazdy 3.9 - 2906261305
+# Licznik jazdy 3.10 - 2906261325
 
 ## Dodano
 
-- Ustawienia kalorii:
-  - masa ciała,
-  - korekta spalania w procentach.
+- wzrost w profilu kalorii,
+- wiek w profilu kalorii,
+- płeć M/K w profilu kalorii,
+- dokładniejsze liczenie kalorii z BMR i MET.
 
-## Poprawiono
-
-- Licznik kalorii korzysta z masy zapisanej w ustawieniach.
-- Dodano możliwość ręcznego dopasowania wyniku spalania.
+APK: `Licznik-v3.10-2906261325.apk`

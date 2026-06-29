@@ -1,12 +1,20 @@
-# Licznik jazdy 3.9
+# Licznik jazdy 3.10
 
-Wersja: **3.9 - 2906261305**  
-`versionCode`: **30900**
+Wersja: **3.10 - 2906261325**  
+`versionCode`: **31000**
 
-## Zmiany
+## Poprawiono profil kalorii
 
-- Dodano w ustawieniach `Parametry kalorii`.
-- Można wpisać masę ciała w kg.
-- Można wpisać korektę spalania w procentach, np. 100%, 120%, 80%.
-- Liczenie kalorii nadal działa tylko dla trybu roweru; w samochodzie pokazuje `--`.
-- Workflow GitHub Actions ustawiony na publikację `Licznik-v3.9-2906261305.apk`.
+W ustawieniach można wpisać:
+
+- masa ciała,
+- wzrost,
+- wiek,
+- płeć: M/K,
+- korekta kalorii w %.
+
+Kalorie są liczone z MET jazdy rowerowej oraz spoczynkowego zapotrzebowania wyliczonego ze wzoru Mifflin-St Jeor. Dzięki temu wzrost, wiek i płeć wpływają na wynik.
+
+APK po GitHub Actions:
+
+`Licznik-v3.10-2906261325.apk`

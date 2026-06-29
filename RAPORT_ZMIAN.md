@@ -1,9 +1,14 @@
-# Raport zmian - Licznik 3.9
+# Raport zmian - Licznik 3.10
 
-## Wykonane
+## Zmieniono
 
-1. Dodano okno `Parametry kalorii` w ustawieniach.
-2. Dodano zapis `profile_weight_kg`.
-3. Dodano zapis `profile_calories_factor`.
-4. Wzór kalorii używa teraz masy i korekty procentowej.
-5. Workflow publikuje APK `Licznik-v3.9-2906261305.apk`.
+- `showCalorieSettings()` ma teraz pola: masa, wzrost, wiek, płeć, korekta %.
+- `formatCalories()` korzysta ze wzoru Mifflin-St Jeor oraz MET dla jazdy.
+- Ustawienia pokazują pełny profil kalorii.
+
+## Pliki
+
+- `MainActivity.java`
+- `app/build.gradle`
+- `.github/workflows/android-build.yml`
+- `URUCHOM_WSZYSTKO.ps1`

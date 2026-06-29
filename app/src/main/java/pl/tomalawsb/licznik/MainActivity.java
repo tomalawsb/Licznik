@@ -60,9 +60,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.9 - 2906261305";
-    public static final String CURRENT_RELEASE_TAG = "v3.9-2906261305";
-    public static final int CURRENT_VERSION_CODE = 30900;
+    public static final String VERSION_NAME = "3.10 - 2906261325";
+    public static final String CURRENT_RELEASE_TAG = "v3.10-2906261325";
+    public static final int CURRENT_VERSION_CODE = 31000;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -1630,11 +1630,14 @@ public class MainActivity extends android.app.Activity {
         box.addView(autoUpdate, new LinearLayout.LayoutParams(-1, dp(46)));
 
         double weightKg = prefs().getFloat("profile_weight_kg", 82f);
+        double heightCm = prefs().getFloat("profile_height_cm", 165f);
+        int ageYears = prefs().getInt("profile_age_years", 43);
+        String sex = prefs().getString("profile_sex", "M");
         float correction = prefs().getFloat("profile_calories_factor", 1.0f);
-        TextView calorieInfo = text(String.format(Locale.US, "Kalorie: %.1f kg • korekta %.0f%%", weightKg, correction * 100f), 14, TEXT, true);
+        TextView calorieInfo = text(String.format(Locale.US, "Kalorie: %.1f kg • %.0f cm • %d lat • %s • %.0f%%", weightKg, heightCm, ageYears, sex, correction * 100f), 13, TEXT, true);
         calorieInfo.setGravity(Gravity.CENTER_VERTICAL);
-        box.addView(calorieInfo, new LinearLayout.LayoutParams(-1, dp(38)));
-        box.addView(settingsButton("Parametry kalorii", BLUE, v -> showCalorieSettings()));
+        box.addView(calorieInfo, new LinearLayout.LayoutParams(-1, dp(42)));
+        box.addView(settingsButton("Profil kalorii", BLUE, v -> showCalorieSettings()));
 
         box.addView(settingsButton("Zmień tryb jazdy", GREEN, v -> chooseModeDialog()));
         box.addView(settingsButton("Sprawdź aktualizację", GREEN, v -> checkForUpdates(true)));
@@ -1655,49 +1658,90 @@ public class MainActivity extends android.app.Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(18), dp(8), dp(18), dp(6));
 
-        TextView info = text("Do kalorii wystarczy masa ciała. Korekta pozwala dopasować wynik, gdy licznik zawyża albo zaniża spalanie.", 14, MUTED, false);
+        TextView info = text("Kalorie są liczone z profilu: masa, wzrost, wiek, płeć, czas jazdy i intensywność. Korekta % pozwala ręcznie dopasować wynik.", 13, MUTED, false);
         info.setGravity(Gravity.CENTER_VERTICAL);
-        box.addView(info, new LinearLayout.LayoutParams(-1, dp(76)));
+        box.addView(info, new LinearLayout.LayoutParams(-1, dp(74)));
 
         EditText weightInput = new EditText(this);
         weightInput.setSingleLine(true);
-        weightInput.setTextSize(18);
+        weightInput.setTextSize(17);
         weightInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        weightInput.setHint("Masa ciała w kg, np. 82");
+        weightInput.setHint("Masa ciała kg, np. 82");
         weightInput.setText(String.format(Locale.US, "%.1f", prefs().getFloat("profile_weight_kg", 82f)));
-        box.addView(weightInput, new LinearLayout.LayoutParams(-1, dp(54)));
+        box.addView(weightInput, new LinearLayout.LayoutParams(-1, dp(50)));
+
+        EditText heightInput = new EditText(this);
+        heightInput.setSingleLine(true);
+        heightInput.setTextSize(17);
+        heightInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        heightInput.setHint("Wzrost cm, np. 165");
+        heightInput.setText(String.format(Locale.US, "%.0f", prefs().getFloat("profile_height_cm", 165f)));
+        box.addView(heightInput, new LinearLayout.LayoutParams(-1, dp(50)));
+
+        EditText ageInput = new EditText(this);
+        ageInput.setSingleLine(true);
+        ageInput.setTextSize(17);
+        ageInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        ageInput.setHint("Wiek, np. 43");
+        ageInput.setText(String.format(Locale.US, "%d", prefs().getInt("profile_age_years", 43)));
+        box.addView(ageInput, new LinearLayout.LayoutParams(-1, dp(50)));
+
+        EditText sexInput = new EditText(this);
+        sexInput.setSingleLine(true);
+        sexInput.setTextSize(17);
+        sexInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        sexInput.setHint("Płeć: M albo K");
+        sexInput.setText(prefs().getString("profile_sex", "M"));
+        box.addView(sexInput, new LinearLayout.LayoutParams(-1, dp(50)));
 
         EditText correctionInput = new EditText(this);
         correctionInput.setSingleLine(true);
-        correctionInput.setTextSize(18);
+        correctionInput.setTextSize(17);
         correctionInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         correctionInput.setHint("Korekta %, np. 100");
         correctionInput.setText(String.format(Locale.US, "%.0f", prefs().getFloat("profile_calories_factor", 1.0f) * 100f));
-        box.addView(correctionInput, new LinearLayout.LayoutParams(-1, dp(54)));
+        box.addView(correctionInput, new LinearLayout.LayoutParams(-1, dp(50)));
 
         new AlertDialog.Builder(this)
-                .setTitle("Parametry kalorii")
+                .setTitle("Profil kalorii")
                 .setView(box)
                 .setPositiveButton("Zapisz", (dialog, which) -> {
                     try {
                         double weight = Double.parseDouble(weightInput.getText().toString().replace(',', '.').trim());
+                        double height = Double.parseDouble(heightInput.getText().toString().replace(',', '.').trim());
+                        int age = Integer.parseInt(ageInput.getText().toString().trim());
+                        String sexRaw = sexInput.getText().toString().trim().toUpperCase(Locale.ROOT);
+                        String sex = sexRaw.startsWith("K") || sexRaw.startsWith("F") ? "K" : "M";
                         double correctionPercent = Double.parseDouble(correctionInput.getText().toString().replace(',', '.').trim());
-                        if (weight < 30 || weight > 180) {
-                            Toast.makeText(this, "Masa musi być od 30 do 180 kg.", Toast.LENGTH_LONG).show();
+
+                        if (weight < 30 || weight > 220) {
+                            Toast.makeText(this, "Masa musi być od 30 do 220 kg.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (height < 120 || height > 230) {
+                            Toast.makeText(this, "Wzrost musi być od 120 do 230 cm.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (age < 10 || age > 100) {
+                            Toast.makeText(this, "Wiek musi być od 10 do 100 lat.", Toast.LENGTH_LONG).show();
                             return;
                         }
                         if (correctionPercent < 50 || correctionPercent > 200) {
                             Toast.makeText(this, "Korekta musi być od 50% do 200%.", Toast.LENGTH_LONG).show();
                             return;
                         }
+
                         prefs().edit()
                                 .putFloat("profile_weight_kg", (float) weight)
+                                .putFloat("profile_height_cm", (float) height)
+                                .putInt("profile_age_years", age)
+                                .putString("profile_sex", sex)
                                 .putFloat("profile_calories_factor", (float) (correctionPercent / 100.0))
                                 .apply();
-                        Toast.makeText(this, "Parametry kalorii zapisane.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Profil kalorii zapisany.", Toast.LENGTH_SHORT).show();
                         showSettings();
                     } catch (Exception e) {
-                        Toast.makeText(this, "Wpisz poprawne liczby.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "Wpisz poprawne dane profilu.", Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Anuluj", null)
@@ -1874,16 +1918,30 @@ public class MainActivity extends android.app.Activity {
 
         double hours = elapsedMs / 3600000.0;
         double weightKg = prefs().getFloat("profile_weight_kg", 82f);
+        double heightCm = prefs().getFloat("profile_height_cm", 165f);
+        int ageYears = prefs().getInt("profile_age_years", 43);
+        String sex = prefs().getString("profile_sex", "M");
         double correction = prefs().getFloat("profile_calories_factor", 1.0f);
+
         double met;
-        if (avgKmh < 10) met = 4.0;
+        if (avgKmh < 8) met = 3.5;
+        else if (avgKmh < 10) met = 4.0;
         else if (avgKmh < 16) met = 5.8;
         else if (avgKmh < 19) met = 6.8;
         else if (avgKmh < 22) met = 8.0;
         else if (avgKmh < 26) met = 10.0;
         else met = 12.0;
 
-        long kcal = Math.round(met * weightKg * hours * correction);
+        double bmr;
+        if ("K".equalsIgnoreCase(sex)) {
+            bmr = 10.0 * weightKg + 6.25 * heightCm - 5.0 * ageYears - 161.0;
+        } else {
+            bmr = 10.0 * weightKg + 6.25 * heightCm - 5.0 * ageYears + 5.0;
+        }
+        if (bmr < 900) bmr = 900;
+
+        double restingKcalPerHour = bmr / 24.0;
+        long kcal = Math.round(met * restingKcalPerHour * hours * correction);
         return kcal <= 0 ? "--" : kcal + " kcal";
     }
 
