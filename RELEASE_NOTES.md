@@ -1,10 +1,10 @@
-# Licznik jazdy 3.6 - 2906261055
+# Licznik jazdy 3.7 - 2906261215
 
 ## Poprawki
 
-- Naprawiono błąd paczki: `MainActivity.java nie ma wersji 3.6`.
-- Dodano czujnikowy kompas oparty o `rotation vector`.
-- Dodano fallback: akcelerometr + magnetometr.
-- Dodano korektę deklinacji magnetycznej.
-- Dodano płynne wygładzanie ruchu igieł kompasu.
-- Wskaźnik celu jest liczony względem kierunku telefonu.
+- Duża mapa nie wraca już ciągle do aktualnej pozycji podczas jazdy.
+- Zamknięcie dużej mapy jest obsługiwane natychmiast po dotknięciu przycisku.
+- Kompas działa jak klasyczny kompas: obraca się cała tarcza z igłą N/S.
+- Igła celu działa jako osobny wskaźnik.
+- Kafelek POI jest skrócony do ikony, odległości i strzałki.
+- Markery POI na mapie dostały ikonograficzne oznaczenia.

@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
@@ -329,10 +330,41 @@ public class RouteMapView extends FrameLayout {
     private void addPoiMarkerOverlays() {
         for (PoiMarker p : poiMarkers) {
             Marker m = marker(p.point, Color.rgb(245, 158, 11));
+            m.setIcon(poiMarkerIcon(p.emoji, p.type));
             m.setTitle((p.emoji == null ? "◆" : p.emoji) + " " + p.name);
             m.setSnippet(p.type);
             mapView.getOverlays().add(m);
         }
+    }
+
+    private Drawable poiMarkerIcon(String emoji, String type) {
+        int size = dp(interactive ? 42 : 34);
+        Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmp);
+        float r = size / 2f;
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        c.drawCircle(r, r, r - dp(1), paint);
+        paint.setColor(colorForPoiType(type));
+        c.drawCircle(r, r, r - dp(4), paint);
+        paint.setColor(Color.WHITE);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTypeface(Typeface.DEFAULT_BOLD);
+        paint.setTextSize(dp(interactive ? 20 : 16));
+        Paint.FontMetrics fm = paint.getFontMetrics();
+        String e = (emoji == null || emoji.length() == 0) ? "◆" : emoji;
+        c.drawText(e, r, r - (fm.ascent + fm.descent) / 2f, paint);
+        return new BitmapDrawable(getResources(), bmp);
+    }
+
+    private int colorForPoiType(String type) {
+        if (type == null) return Color.rgb(245, 158, 11);
+        if (type.contains("Stacja")) return Color.rgb(234, 88, 12);
+        if (type.contains("Schron") || type.contains("Szczyt") || type.contains("widok")) return Color.rgb(22, 163, 74);
+        if (type.contains("rower") || type.contains("Rower")) return Color.rgb(37, 99, 235);
+        if (type.contains("Woda")) return Color.rgb(14, 165, 233);
+        if (type.contains("Apteka") || type.contains("Szpital")) return Color.rgb(220, 38, 38);
+        return Color.rgb(245, 158, 11);
     }
 
     private Marker marker(GeoPoint point, int color) {

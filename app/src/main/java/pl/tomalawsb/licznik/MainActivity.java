@@ -56,9 +56,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.6 - 2906261055";
-    public static final String CURRENT_RELEASE_TAG = "v3.6-2906261055";
-    public static final int CURRENT_VERSION_CODE = 30600;
+    public static final String VERSION_NAME = "3.7 - 2906261215";
+    public static final String CURRENT_RELEASE_TAG = "v3.7-2906261215";
+    public static final int CURRENT_VERSION_CODE = 30700;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -231,10 +231,8 @@ public class MainActivity extends android.app.Activity {
                 routeView.setPointsFromJson(pointsJson);
                 if (hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
             }
-            if (activeFullMap != null && activeFullMapCurrentRoute && pointsJson != null) {
-                activeFullMap.setPointsFromJson(pointsJson);
-                if (hasTargetPoint) activeFullMap.setTargetPoint(targetLat, targetLon);
-                activeFullMap.centerOnLastPoint(17.0);
+            if (activeFullMap != null && hasTargetPoint) {
+                activeFullMap.setTargetPoint(targetLat, targetLon);
             }
             updateCompassAndTargetUi();
             updateStatus(accuracy);
@@ -405,10 +403,10 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void applyCompassFrame() {
-        if (compassNeedleView != null) {
-            displayedNeedleRotation = smoothRotation(displayedNeedleRotation, desiredNeedleRotation, 0.11f);
-            compassNeedleView.setRotation(displayedNeedleRotation);
-        }
+        displayedNeedleRotation = smoothRotation(displayedNeedleRotation, desiredNeedleRotation, 0.11f);
+        if (compassDialView != null) compassDialView.setRotation(displayedNeedleRotation);
+        if (compassNeedleView != null) compassNeedleView.setRotation(displayedNeedleRotation);
+
         if (targetCompassView != null && hasTargetPoint) {
             displayedTargetRotation = smoothRotation(displayedTargetRotation, desiredTargetRotation, 0.12f);
             targetCompassView.setRotation(displayedTargetRotation);
@@ -669,12 +667,12 @@ public class MainActivity extends android.app.Activity {
         targetInfoText.setSingleLine(false);
         box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(32)));
 
-        poiInfoText = text("POI: szukam...", 11, Color.WHITE, true);
+        poiInfoText = text("POI: --", 13, Color.WHITE, true);
         poiInfoText.setGravity(Gravity.CENTER);
         poiInfoText.setSingleLine(true);
         poiInfoText.setShadowLayer(4f, 0f, 1f, Color.BLACK);
-        poiInfoText.setBackground(round(Color.argb(95, 0, 0, 0), 10, Color.argb(90, 255, 255, 255), 1));
-        poiInfoText.setPadding(dp(4), 0, dp(4), 0);
+        poiInfoText.setBackground(round(Color.argb(125, 0, 0, 0), 12, Color.argb(110, 255, 255, 255), 1));
+        poiInfoText.setPadding(dp(6), 0, dp(6), 0);
         poiInfoText.setOnClickListener(v -> cyclePoi(true));
         poiInfoText.setOnLongClickListener(v -> {
             PoiPoint p = currentPoiPoint();
@@ -1154,15 +1152,21 @@ public class MainActivity extends android.app.Activity {
         closeBottomLp.setMargins(0, dp(10), 0, 0);
         root.addView(closeBottom, closeBottomLp);
 
-        View.OnClickListener closeNow = v -> d.dismiss();
+        View.OnClickListener closeNow = v -> { try { d.dismiss(); } catch (Exception ignored) {} };
         closeBtn.setOnClickListener(closeNow);
         closeBottom.setOnClickListener(closeNow);
         closeBtn.setOnTouchListener((v, e) -> {
-            if (e.getAction() == MotionEvent.ACTION_UP) d.dismiss();
+            if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                d.dismiss();
+                return true;
+            }
             return true;
         });
         closeBottom.setOnTouchListener((v, e) -> {
-            if (e.getAction() == MotionEvent.ACTION_UP) d.dismiss();
+            if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                d.dismiss();
+                return true;
+            }
             return true;
         });
 
@@ -1250,7 +1254,7 @@ public class MainActivity extends android.app.Activity {
             updatePoiInfoUi();
             if (manual) {
                 PoiPoint p = currentPoiPoint();
-                if (p != null) Toast.makeText(this, p.name + " • przytrzymaj, aby ustawić jako cel", Toast.LENGTH_SHORT).show();
+                if (p != null) Toast.makeText(this, p.emoji + " " + p.name + " • " + formatDistanceMeters(p.distance) + " • przytrzymaj, aby ustawić jako cel", Toast.LENGTH_SHORT).show();
             }
         } else if (manual) {
             fetchPoiIfNeeded(true);
@@ -1281,7 +1285,7 @@ public class MainActivity extends android.app.Activity {
         if (poiIndex < 0 || poiIndex >= poiPoints.size()) poiIndex = 0;
         PoiPoint p = poiPoints.get(poiIndex);
         double b = bearingDegrees(currentLat, currentLon, p.lat, p.lon);
-        poiInfoText.setText(p.emoji + " " + p.name + "  " + formatDistanceMeters(p.distance) + "  " + arrowForBearing(b));
+        poiInfoText.setText(p.emoji + " " + formatDistanceMeters(p.distance) + " " + arrowForBearing(b));
         updatePoiMarkersOnMaps();
     }
 

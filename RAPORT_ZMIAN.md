@@ -1,16 +1,18 @@
-# Raport zmian - Licznik 3.6 FIX
+# Raport zmian - Licznik 3.7
 
-## Naprawiono
+## Zmieniono
 
-- `MainActivity.java` miał wersję 3.5, a skrypt wymagał 3.6. Poprawiono na 3.6.
-- Dodano realną obsługę czujników kompasu:
-  - `Sensor.TYPE_ROTATION_VECTOR`,
-  - fallback: `TYPE_ACCELEROMETER` + `TYPE_MAGNETIC_FIELD`,
-  - `GeomagneticField` dla deklinacji magnetycznej.
+1. Usunięto automatyczne centrowanie dużej mapy przy każdej aktualizacji GPS.
+2. Przycisk `Zamknij` zamyka dialog na `MotionEvent.ACTION_DOWN`.
+3. `compassDialView` i `compassNeedleView` obracają się razem.
+4. `targetCompassView` pozostaje niezależną igłą celu.
+5. POI pod kompasem pokazuje skrócony zapis: ikona + dystans + kierunek.
+6. POI na mapie dostały rysowane ikony w markerach.
 
 ## Zmienione pliki
 
-- `app/src/main/java/pl/tomalawsb/licznik/MainActivity.java`
+- `MainActivity.java`
+- `RouteMapView.java`
 - `app/build.gradle`
 - `.github/workflows/android-build.yml`
 - `URUCHOM_WSZYSTKO.ps1`
