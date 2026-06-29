@@ -23,10 +23,13 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -56,9 +59,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.7 - 2906261215";
-    public static final String CURRENT_RELEASE_TAG = "v3.7-2906261215";
-    public static final int CURRENT_VERSION_CODE = 30700;
+    public static final String VERSION_NAME = "3.8 - 2906261235";
+    public static final String CURRENT_RELEASE_TAG = "v3.8-2906261235";
+    public static final int CURRENT_VERSION_CODE = 30800;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -93,6 +96,7 @@ public class MainActivity extends android.app.Activity {
     private boolean poiFetchRunning = false;
     private RouteMapView activeFullMap;
     private Dialog activeRouteDialog;
+    private FrameLayout fullMapOverlay;
     private boolean activeFullMapCurrentRoute = false;
     private boolean hasCurrentLocation = false;
     private double currentLat = 0;
@@ -224,7 +228,7 @@ public class MainActivity extends android.app.Activity {
             if (speedSummaryText != null) speedSummaryText.setText(String.format(Locale.US, "Śr: %.3f  •  Maks: %.1f km/h", avg, max));
             if (distanceText != null) distanceText.setText(String.format(Locale.US, "%.2f\nkm dystansu", distanceKm));
             if (timeText != null) timeText.setText(formatDuration(elapsed) + "\nczas jazdy");
-            if (caloriesText != null) caloriesText.setText(formatCalories(distanceKm));
+            if (caloriesText != null) caloriesText.setText(formatCalories(distanceKm, elapsed, avg));
             if (paceText != null) paceText.setText(formatPace(avg));
             if (elevationText != null) elevationText.setText("--");
             if (routeView != null && pointsJson != null) {
@@ -314,6 +318,7 @@ public class MainActivity extends android.app.Activity {
     }
 
     @Override protected void onDestroy() {
+        closeFullMapOverlay();
         try { unregisterReceiver(updateReceiver); } catch (Exception ignored) {}
         unregisterCompassSensors();
         uiHandler.removeCallbacksAndMessages(null);
@@ -1093,17 +1098,18 @@ public class MainActivity extends android.app.Activity {
             return;
         }
 
-        Dialog d = new Dialog(this);
-        d.setCanceledOnTouchOutside(false);
-        d.setCancelable(true);
-        activeRouteDialog = d;
-        activeFullMapCurrentRoute = currentRoute;
+        closeFullMapOverlay();
+
+        fullMapOverlay = new FrameLayout(this);
+        fullMapOverlay.setBackgroundColor(BG);
+        fullMapOverlay.setClickable(true);
+        fullMapOverlay.setFocusable(true);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
         root.setPadding(dp(14), dp(12), dp(14), dp(12));
-        d.setContentView(root);
+        fullMapOverlay.addView(root, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -1112,15 +1118,13 @@ public class MainActivity extends android.app.Activity {
 
         TextView closeBtn = pill("Zamknij", Color.WHITE, RED, 14, true);
         closeBtn.setGravity(Gravity.CENTER);
-        top.addView(closeBtn, new LinearLayout.LayoutParams(dp(104), dp(38)));
+        top.addView(closeBtn, new LinearLayout.LayoutParams(dp(110), dp(40)));
         root.addView(top, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        TextView hint = text((summary == null ? "" : summary + "\n") + "Przytrzymaj mapę, żeby ustawić cel. POI są zaznaczone na mapie.", 12, MUTED, false);
+        TextView hint = text((summary == null ? "" : summary + "\n") + "Przesuwaj i powiększaj mapę. Przytrzymaj punkt, żeby ustawić cel.", 12, MUTED, false);
         hint.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(hint, new LinearLayout.LayoutParams(-1, dp(54)));
 
-        LinearLayout searchRow = new LinearLayout(this);
-        searchRow.setGravity(Gravity.CENTER_VERTICAL);
         EditText search = new EditText(this);
         search.setSingleLine(true);
         search.setTextSize(13);
@@ -1129,70 +1133,101 @@ public class MainActivity extends android.app.Activity {
         search.setHintTextColor(MUTED);
         search.setPadding(dp(10), 0, dp(10), 0);
         search.setBackground(round(Color.WHITE, 12, BORDER, 1));
-        searchRow.addView(search, new LinearLayout.LayoutParams(0, dp(42), 1));
-        TextView searchBtn = pill("Szukaj", Color.WHITE, GREEN, 13, true);
-        searchBtn.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams searchBtnLp = new LinearLayout.LayoutParams(dp(82), dp(42));
-        searchBtnLp.leftMargin = dp(8);
-        searchRow.addView(searchBtn, searchBtnLp);
-        root.addView(searchRow, new LinearLayout.LayoutParams(-1, dp(48)));
+        root.addView(search, new LinearLayout.LayoutParams(-1, dp(44)));
 
         RouteMapView fullMap = new RouteMapView(this);
         activeFullMap = fullMap;
+        activeFullMapCurrentRoute = false;
         fullMap.setInteractive(true);
+        fullMap.setAutoFitOnRedraw(false);
         fullMap.setPointsFromJson(pointsJson);
         if (hasTargetPoint) fullMap.setTargetPoint(targetLat, targetLon);
         fullMap.setPoiMarkersFromJson(poiMarkersJson());
         fullMap.setOnTargetSelectedListener((lat, lon) -> setTargetPoint(lat, lon));
-        root.addView(fullMap, new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(-1, 0, 1);
+        mapLp.setMargins(0, dp(8), 0, dp(8));
+        root.addView(fullMap, mapLp);
 
         TextView closeBottom = pill("Zamknij mapę", Color.WHITE, RED, 15, true);
         closeBottom.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams closeBottomLp = new LinearLayout.LayoutParams(-1, dp(50));
-        closeBottomLp.setMargins(0, dp(10), 0, 0);
-        root.addView(closeBottom, closeBottomLp);
+        root.addView(closeBottom, new LinearLayout.LayoutParams(-1, dp(52)));
 
-        View.OnClickListener closeNow = v -> { try { d.dismiss(); } catch (Exception ignored) {} };
+        View.OnClickListener closeNow = v -> closeFullMapOverlay();
         closeBtn.setOnClickListener(closeNow);
         closeBottom.setOnClickListener(closeNow);
         closeBtn.setOnTouchListener((v, e) -> {
             if (e.getAction() == MotionEvent.ACTION_DOWN) {
-                d.dismiss();
+                closeFullMapOverlay();
                 return true;
             }
             return true;
         });
         closeBottom.setOnTouchListener((v, e) -> {
             if (e.getAction() == MotionEvent.ACTION_DOWN) {
-                d.dismiss();
+                closeFullMapOverlay();
                 return true;
             }
             return true;
         });
 
-        searchBtn.setOnClickListener(v -> searchPoiFromDialog(search.getText().toString(), fullMap));
-
-        d.setOnDismissListener(x -> {
-            if (activeRouteDialog == d) activeRouteDialog = null;
-            if (activeFullMap == fullMap) activeFullMap = null;
-            activeFullMapCurrentRoute = false;
-        });
-        d.setOnShowListener(x -> {
-            Window win = d.getWindow();
-            if (win != null) {
-                win.setLayout(-1, -1);
-                win.setBackgroundDrawableResource(android.R.color.transparent);
+        final Runnable[] pendingSearch = new Runnable[1];
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (pendingSearch[0] != null) uiHandler.removeCallbacks(pendingSearch[0]);
+                String q = s == null ? "" : s.toString();
+                pendingSearch[0] = () -> autoSearchPoiFromDialog(q, fullMap);
+                uiHandler.postDelayed(pendingSearch[0], 350);
             }
-            closeBottom.bringToFront();
-            closeBtn.bringToFront();
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        getWindow().addContentView(fullMapOverlay, new ViewGroup.LayoutParams(-1, -1));
+        fullMapOverlay.bringToFront();
+        closeBtn.bringToFront();
+        closeBottom.bringToFront();
+        fullMap.post(() -> {
             if (currentRoute) fullMap.centerOnLastPoint(17.0);
             else fullMap.fitRoute();
         });
-        d.show();
     }
 
 
 
+
+
+    private void closeFullMapOverlay() {
+        try {
+            if (fullMapOverlay != null) {
+                ViewGroup parent = (ViewGroup) fullMapOverlay.getParent();
+                if (parent != null) parent.removeView(fullMapOverlay);
+            }
+        } catch (Exception ignored) {}
+        fullMapOverlay = null;
+        activeFullMap = null;
+        activeFullMapCurrentRoute = false;
+        enterImmersiveMode();
+    }
+
+    private void autoSearchPoiFromDialog(String query, RouteMapView map) {
+        if (!hasCurrentLocation) return;
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (q.length() < 2) return;
+        if (poiPoints.isEmpty()) {
+            fetchPoiIfNeeded(true);
+            return;
+        }
+        for (int i = 0; i < poiPoints.size(); i++) {
+            PoiPoint p = poiPoints.get(i);
+            String hay = (p.name + " " + p.type).toLowerCase(Locale.ROOT);
+            if (hay.contains(q)) {
+                poiIndex = i;
+                updatePoiInfoUi();
+                if (map != null) map.centerOnPoint(p.lat, p.lon, 18.0);
+                return;
+            }
+        }
+    }
 
     private String poiMarkersJson() {
         JSONArray arr = new JSONArray();
@@ -1770,11 +1805,22 @@ public class MainActivity extends android.app.Activity {
         navProfile.setTextColor(currentTab == 3 ? GREEN_DARK : MUTED);
     }
 
-    private String formatCalories(double distanceKm) {
-        if (distanceKm <= 0.01) return "--";
+    private String formatCalories(double distanceKm, long elapsedMs, double avgKmh) {
+        if (distanceKm <= 0.01 || elapsedMs <= 0) return "--";
         if ("Samochód".equals(selectedMode)) return "--";
-        double kcalPerKm = 28.0;
-        return Math.round(distanceKm * kcalPerKm) + " kcal";
+
+        double hours = elapsedMs / 3600000.0;
+        double weightKg = prefs().getFloat("profile_weight_kg", 82f);
+        double met;
+        if (avgKmh < 10) met = 4.0;
+        else if (avgKmh < 16) met = 5.8;
+        else if (avgKmh < 19) met = 6.8;
+        else if (avgKmh < 22) met = 8.0;
+        else if (avgKmh < 26) met = 10.0;
+        else met = 12.0;
+
+        long kcal = Math.round(met * weightKg * hours);
+        return kcal <= 0 ? "--" : kcal + " kcal";
     }
 
     private String formatPace(double avgKmh) {

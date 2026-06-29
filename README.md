@@ -1,17 +1,14 @@
-# Licznik jazdy 3.7
+# Licznik jazdy 3.8
 
-Wersja: **3.7 - 2906261215**  
-`versionCode`: **30700**
+Wersja: **3.8 - 2906261235**
+`versionCode`: **30800**
 
 ## Poprawiono
 
-- Duża mapa nie jest już ciągle centrowana podczas jazdy, więc można ją przesuwać, przybliżać i oddalać.
-- Przycisk `Zamknij` działa od razu po dotknięciu (`ACTION_DOWN`).
-- Obraca się cała tarcza kompasu razem z igłą N/S.
-- Turkusowa igła celu obraca się niezależnie.
-- Kafelek POI nie pokazuje już długiej nazwy, tylko ikonę, odległość i kierunek.
-- POI na mapie mają czytelniejsze ikony typu: stacja, schronisko, rower, woda, apteka.
+- Duża mapa jest teraz zwykłą nakładką, nie dialogiem — `Zamknij` usuwa ją jednym dotknięciem.
+- Na dużej mapie wyłączono automatyczne dopasowywanie/centrowanie po aktualizacjach POI/celu. Można ją przesuwać i skalować podczas trasy.
+- Wyszukiwarka POI działa automatycznie po wpisaniu tekstu; przycisk `Szukaj` usunięty.
+- Zmieniono główną ikonę programu.
+- Kalorie liczone są teraz z czasu jazdy, masy 82 kg i przybliżonego MET zależnego od średniej prędkości.
 
-APK po GitHub Actions:
-
-`Licznik-v3.7-2906261215.apk`
+APK: `Licznik-v3.8-2906261235.apk`

@@ -56,6 +56,7 @@ public class RouteMapView extends FrameLayout {
     private final List<PoiMarker> poiMarkers = new ArrayList<>();
     private String lastPointsJson = "[]";
     private boolean interactive = false;
+    private boolean autoFitOnRedraw = true;
     private OnClickListener externalClickListener;
     private GeoPoint targetPoint = null;
     private OnTargetSelectedListener targetSelectedListener = null;
@@ -226,6 +227,12 @@ public class RouteMapView extends FrameLayout {
         });
     }
 
+    public void setAutoFitOnRedraw(boolean enabled) {
+        autoFitOnRedraw = enabled;
+    }
+
+
+
     public void clear() {
         lastPointsJson = "[]";
         routePoints.clear();
@@ -323,7 +330,8 @@ public class RouteMapView extends FrameLayout {
         addPoiMarkerOverlays();
         if (targetPoint != null) mapView.getOverlays().add(marker(targetPoint, Color.rgb(6, 182, 212)));
         ensureTargetEventsOverlay();
-        fitRoute();
+        if (autoFitOnRedraw) fitRoute();
+        else mapView.invalidate();
     }
 
 

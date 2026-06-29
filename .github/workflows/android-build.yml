@@ -1,4 +1,4 @@
-name: Build Android APK - Licznik 3.7
+name: Build Android APK - Licznik 3.8
 
 on:
   push:
@@ -9,46 +9,39 @@ permissions:
   contents: write
 
 concurrency:
-  group: licznik-v3.7-build
+  group: licznik-v3.8-build
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
-
       - name: Ustaw Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Ustaw Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
       - name: Zbuduj APK release
         run: gradle assembleRelease
-
       - name: Przygotuj nazwany APK
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.7-2906261215.apk
-          sha256sum Licznik-v3.7-2906261215.apk > SHA256SUMS-v3.7.txt
-
+          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.8-2906261235.apk
+          sha256sum Licznik-v3.8-2906261235.apk > SHA256SUMS-v3.8.txt
       - name: Udostepnij APK jako artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Licznik-v3.7-2906261215-apk
+          name: Licznik-v3.8-2906261235-apk
           path: |
-            Licznik-v3.7-2906261215.apk
-            SHA256SUMS-v3.7.txt
-
+            Licznik-v3.8-2906261235.apk
+            SHA256SUMS-v3.8.txt
       - name: Opublikuj lub zaktualizuj GitHub Release
         if: github.ref == 'refs/heads/main'
         shell: bash
@@ -56,24 +49,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
-          TAG="v3.7-2906261215"
-          APK="Licznik-v3.7-2906261215.apk"
-          TITLE="Licznik jazdy 3.7 - poprawki mapy, kompasu i POI"
+          TAG="v3.8-2906261235"
+          APK="Licznik-v3.8-2906261235.apk"
+          TITLE="Licznik jazdy 3.8 - poprawki mapy i ikon"
           NOTES_TMP="${RUNNER_TEMP}/release-notes.txt"
+          if [ -f "RELEASE_NOTES.md" ]; then cat "RELEASE_NOTES.md" > "$NOTES_TMP"; else echo "$TITLE" > "$NOTES_TMP"; fi
+          printf '
 
-          if [ -f "RELEASE_NOTES.md" ]; then
-            cat "RELEASE_NOTES.md" > "$NOTES_TMP"
-          else
-            echo "Licznik jazdy 3.7 - poprawki mapy, kompasu i POI" > "$NOTES_TMP"
-          fi
-
-          printf '\n\nCommit: %s\n' "$GITHUB_SHA" >> "$NOTES_TMP"
-
+Commit: %s
+' "$GITHUB_SHA" >> "$NOTES_TMP"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
-            gh release upload "$TAG" SHA256SUMS-v3.7.txt --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" SHA256SUMS-v3.8.txt --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_TMP" --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" "$APK" SHA256SUMS-v3.7.txt --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES_TMP" --repo "$GITHUB_REPOSITORY"
+            gh release create "$TAG" "$APK" SHA256SUMS-v3.8.txt --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES_TMP" --repo "$GITHUB_REPOSITORY"
           fi

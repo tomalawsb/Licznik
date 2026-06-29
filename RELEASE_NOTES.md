@@ -1,10 +1,7 @@
-# Licznik jazdy 3.7 - 2906261215
+# Licznik jazdy 3.8 - 2906261235
 
-## Poprawki
-
-- Duża mapa nie wraca już ciągle do aktualnej pozycji podczas jazdy.
-- Zamknięcie dużej mapy jest obsługiwane natychmiast po dotknięciu przycisku.
-- Kompas działa jak klasyczny kompas: obraca się cała tarcza z igłą N/S.
-- Igła celu działa jako osobny wskaźnik.
-- Kafelek POI jest skrócony do ikony, odległości i strzałki.
-- Markery POI na mapie dostały ikonograficzne oznaczenia.
+- Naprawione zamykanie dużej mapy jednym dotknięciem.
+- Wyłączone wymuszanie powrotu dużej mapy do aktualnej lokalizacji podczas przesuwania/zoomu.
+- Automatyczna wyszukiwarka POI bez przycisku.
+- Nowa ikona aplikacji.
+- Poprawione obliczanie kalorii: czas jazdy × masa × MET.
