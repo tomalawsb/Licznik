@@ -1,24 +1,20 @@
-# Raport zmian - Licznik 3.2
-
-## Pliki zmienione
-
-- `app/src/main/java/pl/tomalawsb/licznik/MainActivity.java`
-- `app/src/main/java/pl/tomalawsb/licznik/RouteMapView.java`
-- `app/src/main/res/drawable-nodpi/kompas_tarcza.png`
-- `app/src/main/res/drawable-nodpi/kompas_igla_glowna.png`
-- `app/src/main/res/drawable-nodpi/kompas_wskaznik_celu.png`
-- `app/build.gradle`
-- `.github/workflows/android-build.yml`
-- `URUCHOM_WSZYSTKO.ps1`
+# Raport zmian - Licznik 3.4
 
 ## Wykonane
 
-1. Kompas przeniesiony z zielonego panelu na mapę główną.
-2. Zastosowano nowy kompas warstwowy PNG.
-3. Dodano niezależny wskaźnik celu.
-4. Dodano obsługę długiego przytrzymania na dużej mapie do ustawienia celu.
-5. Dodano obliczanie odległości i kierunku do celu.
-6. Dodano aktualizację dużej mapy na żywo podczas jazdy.
-7. Zmieniono zamykanie dużej mapy na jedno kliknięcie.
-8. Zwiększono tekst średniej i maksymalnej prędkości o 2 punkty.
-9. Zmieniono GitHub Actions tak, aby budował APK z kodu źródłowego.
+1. Dodano pobieranie POI z Overpass API.
+2. Dodano listę POI w pamięci aplikacji.
+3. Dodano kafelek POI pod kompasem.
+4. Kliknięcie kafelka przełącza na kolejny punkt.
+5. Automatyczne przełączenie punktu co 3 minuty.
+6. Długie przytrzymanie kafelka ustawia punkt jako cel kompasu.
+7. Dodano sortowanie POI według odległości.
+8. Dodano deduplikację zbliżonych lub identycznie nazwanych punktów.
+9. Dodano typy: stacja, sklep, schronisko, kemping, parking, apteka, restauracja, kawiarnia, szpital, policja, punkt widokowy.
+
+## Zmienione pliki
+
+- `app/src/main/java/pl/tomalawsb/licznik/MainActivity.java`
+- `app/build.gradle`
+- `.github/workflows/android-build.yml`
+- `URUCHOM_WSZYSTKO.ps1`

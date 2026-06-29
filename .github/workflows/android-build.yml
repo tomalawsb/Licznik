@@ -1,4 +1,4 @@
-name: Build Android APK - Licznik 3.2
+name: Build Android APK - Licznik 3.4
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: licznik-v3.2-build
+  group: licznik-v3.4-build
   cancel-in-progress: false
 
 jobs:
@@ -38,16 +38,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.2-2906260712.apk
-          sha256sum Licznik-v3.2-2906260712.apk > SHA256SUMS-v3.2.txt
+          cp app/build/outputs/apk/release/app-release.apk Licznik-v3.4-2906261015.apk
+          sha256sum Licznik-v3.4-2906261015.apk > SHA256SUMS-v3.4.txt
 
       - name: Udostepnij APK jako artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Licznik-v3.2-2906260712-apk
+          name: Licznik-v3.4-2906261015-apk
           path: |
-            Licznik-v3.2-2906260712.apk
-            SHA256SUMS-v3.2.txt
+            Licznik-v3.4-2906261015.apk
+            SHA256SUMS-v3.4.txt
 
       - name: Opublikuj lub zaktualizuj GitHub Release
         if: github.ref == 'refs/heads/main'
@@ -57,28 +57,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="v3.2-2906260712"
-          APK="Licznik-v3.2-2906260712.apk"
-          TITLE="Licznik jazdy 3.2 - kompas na mapie"
+          TAG="v3.4-2906261015"
+          APK="Licznik-v3.4-2906261015.apk"
+          TITLE="Licznik jazdy 3.4 - punkty POI pod kompasem"
           NOTES_TMP="${RUNNER_TEMP}/release-notes.txt"
 
           if [ -f "RELEASE_NOTES.md" ]; then
             cat "RELEASE_NOTES.md" > "$NOTES_TMP"
           else
-            echo "Licznik jazdy 3.2 - kompas na mapie" > "$NOTES_TMP"
+            echo "Licznik jazdy 3.4 - punkty POI pod kompasem" > "$NOTES_TMP"
           fi
 
           printf '\n\nCommit: %s\n' "$GITHUB_SHA" >> "$NOTES_TMP"
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
-            gh release upload "$TAG" SHA256SUMS-v3.2.txt --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" SHA256SUMS-v3.4.txt --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" \
               --title "$TITLE" \
               --notes-file "$NOTES_TMP" \
               --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" "$APK" SHA256SUMS-v3.2.txt \
+            gh release create "$TAG" "$APK" SHA256SUMS-v3.4.txt \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
               --notes-file "$NOTES_TMP" \

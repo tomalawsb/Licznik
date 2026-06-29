@@ -1,16 +1,23 @@
-# Licznik jazdy 3.2 - 2906260712
+# Licznik jazdy 3.4 - 2906261015
 
-## Zmiany
+## Dodano
 
-- Kompas został przeniesiony na mapę główną jako nakładka.
-- Nowy kompas używa osobnych warstw PNG: tarcza, igła główna, wskaźnik celu.
-- Wskaźnik celu obraca się niezależnie i pokazuje kierunek do punktu ustawionego na mapie.
-- Na dużej mapie dłuższe przytrzymanie palcem ustawia cel.
-- Pod kompasem wyświetlana jest odległość do celu w linii prostej.
-- Duża mapa aktualizuje pozycję podczas jazdy.
-- Zamknięcie dużej mapy działa jednym kliknięciem.
-- Tekst średniej i maksymalnej prędkości na zielonym panelu zwiększony o 2 punkty.
+- Kafelek najbliższego POI pod kompasem.
+- Automatyczne pobieranie punktów POI z OpenStreetMap przez Overpass API.
+- Automatyczne przełączanie punktu co 3 minuty.
+- Ręczne przełączanie punktu po dotknięciu kafelka.
+- Ustawianie POI jako celu kompasu po dłuższym przytrzymaniu kafelka.
+- Odległość i strzałka kierunku przy POI.
 
-## Uwaga
+## Obsługiwane punkty
 
-Automatyczne POI typu stacje benzynowe/sklepy/schroniska wymaga dodatkowego źródła danych, np. OSM Overpass albo Google Places. Ta wersja przygotowuje mechanizm celu i wskaźnika kompasu dla punktu wybranego ręcznie na mapie.
+- stacje paliw,
+- sklepy,
+- schroniska,
+- kempingi,
+- parkingi,
+- apteki,
+- restauracje/kawiarnie,
+- szpitale,
+- policja,
+- punkty widokowe/informacja turystyczna.

@@ -19,6 +19,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -36,16 +38,21 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
-    public static final String VERSION_NAME = "3.2 - 2906260712";
-    public static final String CURRENT_RELEASE_TAG = "v3.2-2906260712";
-    public static final int CURRENT_VERSION_CODE = 30200;
+    public static final String VERSION_NAME = "3.4 - 2906261015";
+    public static final String CURRENT_RELEASE_TAG = "v3.4-2906261015";
+    public static final int CURRENT_VERSION_CODE = 30400;
 
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/tomalawsb/Licznik/releases/latest";
     private static final int REQ_PERMISSIONS = 1001;
@@ -69,15 +76,23 @@ public class MainActivity extends android.app.Activity {
     private TextView primaryActionIcon, primaryActionLabel;
     private TextView headerModeIcon, speedHeroWatermark;
     private LinearLayout primaryActionButton;
+    private LinearLayout actionHost;
     private RouteMapView routeView;
     private ImageView compassDialView, compassNeedleView, targetCompassView;
     private TextView targetInfoText;
+    private TextView poiInfoText;
+    private final ArrayList<PoiPoint> poiPoints = new ArrayList<>();
+    private int poiIndex = 0;
+    private long lastPoiFetchRealtime = 0;
+    private boolean poiFetchRunning = false;
     private RouteMapView activeFullMap;
     private Dialog activeRouteDialog;
     private boolean activeFullMapCurrentRoute = false;
     private boolean hasCurrentLocation = false;
     private double currentLat = 0;
     private double currentLon = 0;
+    private boolean hasCourseBearing = false;
+    private double courseBearing = 0;
     private boolean hasTargetPoint = false;
     private double targetLat = 0;
     private double targetLon = 0;
@@ -102,6 +117,13 @@ public class MainActivity extends android.app.Activity {
             }
             if (timeText != null) timeText.setText(formatDuration(displayElapsed) + "\nczas jazdy");
             uiHandler.postDelayed(this, 250);
+        }
+    };
+
+    private final Runnable poiRotator = new Runnable() {
+        @Override public void run() {
+            cyclePoi(false);
+            uiHandler.postDelayed(this, 180000);
         }
     };
 
@@ -142,7 +164,7 @@ public class MainActivity extends android.app.Activity {
             elapsedSyncRealtime = SystemClock.elapsedRealtime();
 
             if (speedValueText != null) speedValueText.setText(String.format(Locale.US, "%.1f", speed));
-            if (speedSummaryText != null) speedSummaryText.setText(String.format(Locale.US, "Średnia: %.3f km/h  •  Maks: %.1f km/h", avg, max));
+            if (speedSummaryText != null) speedSummaryText.setText(String.format(Locale.US, "Śr: %.3f  •  Maks: %.1f km/h", avg, max));
             if (distanceText != null) distanceText.setText(String.format(Locale.US, "%.2f\nkm dystansu", distanceKm));
             if (timeText != null) timeText.setText(formatDuration(elapsed) + "\nczas jazdy");
             if (caloriesText != null) caloriesText.setText(formatCalories(distanceKm));
@@ -163,6 +185,25 @@ public class MainActivity extends android.app.Activity {
         }
     };
 
+
+    private static class PoiPoint {
+        final String name;
+        final String type;
+        final String emoji;
+        final double lat;
+        final double lon;
+        double distance;
+
+        PoiPoint(String name, String type, String emoji, double lat, double lon, double distance) {
+            this.name = name == null || name.trim().isEmpty() ? type : name.trim();
+            this.type = type;
+            this.emoji = emoji;
+            this.lat = lat;
+            this.lon = lon;
+            this.distance = distance;
+        }
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window w = getWindow();
@@ -176,6 +217,7 @@ public class MainActivity extends android.app.Activity {
         requestPermissionsIfNeeded(false);
         renderRide();
         uiHandler.post(clockUiTicker);
+        uiHandler.postDelayed(poiRotator, 180000);
         if (prefs().getBoolean("auto_update_check", false)) checkForUpdates(false);
     }
 
@@ -264,6 +306,13 @@ public class MainActivity extends android.app.Activity {
         scroll.addView(contentBox);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
+        actionHost = new LinearLayout(this);
+        actionHost.setOrientation(LinearLayout.VERTICAL);
+        actionHost.setGravity(Gravity.CENTER);
+        actionHost.setPadding(dp(16), dp(4), dp(16), dp(4));
+        actionHost.setVisibility(View.GONE);
+        root.addView(actionHost, new LinearLayout.LayoutParams(-1, dp(74)));
+
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(dp(10), dp(4), dp(10), dp(8));
@@ -288,8 +337,10 @@ public class MainActivity extends android.app.Activity {
     private void renderRide() {
         currentTab = 0;
         updateNav();
+        if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
-        contentBox.setPadding(dp(16), 0, dp(16), dp(14));
+        contentBox.setPadding(dp(16), 0, dp(16), dp(8));
+        if (actionHost != null) actionHost.setVisibility(View.VISIBLE);
 
         buildSpeedHero();
         buildDistanceTimeRow();
@@ -327,7 +378,7 @@ public class MainActivity extends android.app.Activity {
         speedLine.addView(unit, new LinearLayout.LayoutParams(-2, dp(66)));
         column.addView(speedLine, new LinearLayout.LayoutParams(-1, dp(66)));
 
-        speedSummaryText = text("Średnia: 0.000 km/h  •  Maks: 0.0 km/h", 17, Color.rgb(229, 250, 237), true);
+        speedSummaryText = text("Śr: 0.000  •  Maks: 0.0 km/h", 16, Color.rgb(229, 250, 237), true);
         speedSummaryText.setSingleLine(true);
         speedSummaryText.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
         column.addView(speedSummaryText, new LinearLayout.LayoutParams(-1, dp(38)));
@@ -388,12 +439,12 @@ public class MainActivity extends android.app.Activity {
         mapFrame.addView(statusText, statusLp);
 
         View compassOverlay = buildCompassOverlay();
-        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(132), dp(150), Gravity.TOP | Gravity.RIGHT);
+        FrameLayout.LayoutParams compassLp = new FrameLayout.LayoutParams(dp(142), dp(174), Gravity.TOP | Gravity.RIGHT);
         compassLp.topMargin = dp(8);
         compassLp.rightMargin = dp(8);
         mapFrame.addView(compassOverlay, compassLp);
 
-        card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(220)));
+        card.addView(mapFrame, new LinearLayout.LayoutParams(-1, dp(300)));
 
         LinearLayout extras = new LinearLayout(this);
         extras.setGravity(Gravity.CENTER);
@@ -404,7 +455,7 @@ public class MainActivity extends android.app.Activity {
         paceText = buildMiniMetric(extras, "◴", "Tempo", "--", Color.rgb(58, 110, 50));
         card.addView(extras, new LinearLayout.LayoutParams(-1, dp(66)));
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(286));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(366));
         lp.setMargins(0, 0, 0, dp(10));
         contentBox.addView(card, lp);
 
@@ -415,8 +466,8 @@ public class MainActivity extends android.app.Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
-        box.setPadding(dp(6), dp(5), dp(6), dp(5));
-        box.setBackground(round(Color.argb(168, 10, 22, 30), 18, Color.argb(110, 255, 255, 255), 1));
+        box.setPadding(0, 0, 0, 0);
+        box.setBackgroundColor(Color.TRANSPARENT);
         box.setClickable(true);
         box.setOnClickListener(v -> {
             if (hasTargetPoint) {
@@ -443,12 +494,31 @@ public class MainActivity extends android.app.Activity {
         targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
         stack.addView(targetCompassView, new FrameLayout.LayoutParams(-1, -1));
 
-        box.addView(stack, new LinearLayout.LayoutParams(dp(96), dp(96)));
+        box.addView(stack, new LinearLayout.LayoutParams(dp(104), dp(104)));
 
         targetInfoText = text("Przytrzymaj mapę\naby ustawić cel", 10, Color.WHITE, true);
         targetInfoText.setGravity(Gravity.CENTER);
+        targetInfoText.setShadowLayer(4f, 0f, 1f, Color.BLACK);
         targetInfoText.setSingleLine(false);
-        box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(40)));
+        box.addView(targetInfoText, new LinearLayout.LayoutParams(-1, dp(34)));
+
+        poiInfoText = text("POI: szukam...", 10, Color.WHITE, true);
+        poiInfoText.setGravity(Gravity.CENTER);
+        poiInfoText.setSingleLine(true);
+        poiInfoText.setShadowLayer(4f, 0f, 1f, Color.BLACK);
+        poiInfoText.setBackground(round(Color.argb(95, 0, 0, 0), 10, Color.argb(90, 255, 255, 255), 1));
+        poiInfoText.setPadding(dp(4), 0, dp(4), 0);
+        poiInfoText.setOnClickListener(v -> cyclePoi(true));
+        poiInfoText.setOnLongClickListener(v -> {
+            PoiPoint p = currentPoiPoint();
+            if (p != null) {
+                setTargetPoint(p.lat, p.lon);
+                Toast.makeText(this, "POI ustawiony jako cel: " + p.name, Toast.LENGTH_LONG).show();
+                return true;
+            }
+            return false;
+        });
+        box.addView(poiInfoText, new LinearLayout.LayoutParams(-1, dp(28)));
         return box;
     }
 
@@ -473,9 +543,7 @@ public class MainActivity extends android.app.Activity {
     private void buildActionRow() {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, dp(70));
-        rowLp.setMargins(0, dp(2), 0, dp(6));
-        contentBox.addView(row, rowLp);
+        row.setPadding(0, 0, 0, 0);
 
         primaryActionButton = actionBtn("▷", "Rozpocznij jazdę", GREEN, v -> primaryRideAction());
         primaryActionIcon = (TextView) primaryActionButton.getChildAt(0);
@@ -491,6 +559,15 @@ public class MainActivity extends android.app.Activity {
 
         TextView reset = squareAction("↻", TEXT, v -> resetRide());
         row.addView(reset, new LinearLayout.LayoutParams(dp(64), -1));
+
+        if (actionHost != null) {
+            actionHost.removeAllViews();
+            actionHost.addView(row, new LinearLayout.LayoutParams(-1, -1));
+        } else {
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, dp(70));
+            rowLp.setMargins(0, dp(2), 0, dp(6));
+            contentBox.addView(row, rowLp);
+        }
     }
 
     private void buildRecentRides() {
@@ -554,6 +631,7 @@ public class MainActivity extends android.app.Activity {
     private void renderHistory() {
         currentTab = 1;
         updateNav();
+        if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
         contentBox.setPadding(dp(16), 0, dp(16), dp(18));
         contentBox.addView(text("Historia", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(48)));
@@ -565,13 +643,13 @@ public class MainActivity extends android.app.Activity {
                 contentBox.addView(empty, new LinearLayout.LayoutParams(-1, dp(140)));
                 return;
             }
-            for (int i = arr.length() - 1; i >= 0; i--) addHistoryCard(arr.getJSONObject(i));
+            for (int i = arr.length() - 1; i >= 0; i--) addHistoryCard(arr.getJSONObject(i), i);
         } catch (Exception e) {
             contentBox.addView(text("Nie udało się odczytać historii.", 16, RED, true));
         }
     }
 
-    private void addHistoryCard(JSONObject o) throws Exception {
+    private void addHistoryCard(JSONObject o, int historyIndex) throws Exception {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -589,9 +667,17 @@ public class MainActivity extends android.app.Activity {
         info.addView(text(mode, 15, TEXT, true), new LinearLayout.LayoutParams(-1, 0, 1));
         info.addView(text(o.optString("date", ""), 12, MUTED, false), new LinearLayout.LayoutParams(-1, 0, 1));
         top.addView(info, new LinearLayout.LayoutParams(0, -1, 1));
-        TextView dist = text(String.format(Locale.US, "%.2f km  ›", o.optDouble("distanceKm", 0)), 17, NAVY, true);
+        TextView dist = text(String.format(Locale.US, "%.2f km", o.optDouble("distanceKm", 0)), 15, NAVY, true);
         dist.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
-        top.addView(dist, new LinearLayout.LayoutParams(dp(112), -1));
+        top.addView(dist, new LinearLayout.LayoutParams(dp(82), -1));
+
+        TextView del = pill("Usuń", Color.WHITE, RED, 12, true);
+        del.setGravity(Gravity.CENTER);
+        del.setOnClickListener(v -> confirmDeleteHistoryEntry(historyIndex));
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(dp(58), dp(34));
+        delLp.leftMargin = dp(8);
+        top.addView(del, delLp);
+
         card.addView(top, new LinearLayout.LayoutParams(-1, dp(48)));
 
         TextView metrics = text(String.format(Locale.US, "⏱ %s   •   śr. %.3f km/h   •   maks. %.1f km/h",
@@ -614,9 +700,35 @@ public class MainActivity extends android.app.Activity {
         contentBox.addView(card, lp);
     }
 
+
+    private void confirmDeleteHistoryEntry(int index) {
+        new AlertDialog.Builder(this)
+                .setTitle("Usunąć tę trasę?")
+                .setMessage("Ta jedna trasa zostanie usunięta z historii.")
+                .setPositiveButton("Usuń", (dialog, which) -> deleteHistoryEntry(index))
+                .setNegativeButton("Anuluj", null)
+                .show();
+    }
+
+    private void deleteHistoryEntry(int index) {
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("history", "[]"));
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < arr.length(); i++) {
+                if (i != index) out.put(arr.get(i));
+            }
+            prefs().edit().putString("history", out.toString()).apply();
+            Toast.makeText(this, "Trasa usunięta.", Toast.LENGTH_SHORT).show();
+            renderHistory();
+        } catch (Exception e) {
+            Toast.makeText(this, "Nie udało się usunąć trasy.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void renderProgress() {
         currentTab = 2;
         updateNav();
+        if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
         contentBox.setPadding(dp(16), 0, dp(16), dp(18));
         contentBox.addView(text("Postępy", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(50)));
@@ -649,6 +761,7 @@ public class MainActivity extends android.app.Activity {
     private void renderProfile() {
         currentTab = 3;
         updateNav();
+        if (actionHost != null) actionHost.setVisibility(View.GONE);
         contentBox.removeAllViews();
         contentBox.setPadding(dp(16), 0, dp(16), dp(18));
         contentBox.addView(text("Profil i ustawienia", 23, NAVY, true), new LinearLayout.LayoutParams(-1, dp(50)));
@@ -817,6 +930,7 @@ public class MainActivity extends android.app.Activity {
 
         Dialog d = new Dialog(this);
         d.setCanceledOnTouchOutside(false);
+        d.setCancelable(true);
         activeRouteDialog = d;
         activeFullMapCurrentRoute = currentRoute;
 
@@ -855,7 +969,20 @@ public class MainActivity extends android.app.Activity {
         closeBottomLp.setMargins(0, dp(10), 0, 0);
         root.addView(closeBottom, closeBottomLp);
 
-        closeBtn.setOnClickListener(v -> d.dismiss());
+        View.OnClickListener closeNow = v -> {
+            try { d.dismiss(); } catch (Exception ignored) {}
+        };
+        closeBtn.setOnClickListener(closeNow);
+        closeBottom.setOnClickListener(closeNow);
+        closeBtn.setOnTouchListener((v, e) -> {
+            if (e.getAction() == MotionEvent.ACTION_UP) d.dismiss();
+            return true;
+        });
+        closeBottom.setOnTouchListener((v, e) -> {
+            if (e.getAction() == MotionEvent.ACTION_UP) d.dismiss();
+            return true;
+        });
+
         fitBtnTop.setOnClickListener(v -> {
             if (currentRoute) fullMap.centerOnLastPoint(17.0);
             else fullMap.fitRoute();
@@ -871,12 +998,206 @@ public class MainActivity extends android.app.Activity {
                 win.setLayout(-1, -1);
                 win.setBackgroundDrawableResource(android.R.color.transparent);
             }
+            closeBottom.bringToFront();
+            closeBtn.bringToFront();
             if (currentRoute) fullMap.centerOnLastPoint(17.0);
             else fullMap.fitRoute();
         });
         d.show();
     }
 
+
+
+    private void cyclePoi(boolean manual) {
+        if (poiPoints.size() > 0) {
+            poiIndex = (poiIndex + 1) % poiPoints.size();
+            updatePoiInfoUi();
+            if (manual) {
+                PoiPoint p = currentPoiPoint();
+                if (p != null) Toast.makeText(this, p.name + " • przytrzymaj, aby ustawić jako cel", Toast.LENGTH_SHORT).show();
+            }
+        } else if (manual) {
+            fetchPoiIfNeeded(true);
+            Toast.makeText(this, hasCurrentLocation ? "Szukam najbliższych punktów POI..." : "Najpierw potrzebny jest sygnał GPS.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private PoiPoint currentPoiPoint() {
+        if (poiPoints.isEmpty()) return null;
+        if (poiIndex < 0 || poiIndex >= poiPoints.size()) poiIndex = 0;
+        return poiPoints.get(poiIndex);
+    }
+
+    private void updatePoiInfoUi() {
+        if (poiInfoText == null) return;
+        if (!hasCurrentLocation) {
+            poiInfoText.setText("POI: czekam na GPS");
+            return;
+        }
+        if (poiPoints.isEmpty()) {
+            poiInfoText.setText("POI: szukam...");
+            return;
+        }
+        for (PoiPoint p : poiPoints) {
+            p.distance = distanceMeters(currentLat, currentLon, p.lat, p.lon);
+        }
+        Collections.sort(poiPoints, (a, b) -> Double.compare(a.distance, b.distance));
+        if (poiIndex < 0 || poiIndex >= poiPoints.size()) poiIndex = 0;
+        PoiPoint p = poiPoints.get(poiIndex);
+        double b = bearingDegrees(currentLat, currentLon, p.lat, p.lon);
+        poiInfoText.setText(p.emoji + " " + p.name + "  " + formatDistanceMeters(p.distance) + "  " + arrowForBearing(b));
+    }
+
+    private String arrowForBearing(double bearing) {
+        String[] arrows = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
+        int idx = (int) Math.round(((bearing % 360.0) / 45.0)) % 8;
+        return arrows[idx];
+    }
+
+    private void fetchPoiIfNeeded(boolean force) {
+        if (!hasCurrentLocation || poiFetchRunning) return;
+        long now = SystemClock.elapsedRealtime();
+        if (!force && !poiPoints.isEmpty() && now - lastPoiFetchRealtime < 600000) return;
+        poiFetchRunning = true;
+        lastPoiFetchRealtime = now;
+        final double lat = currentLat;
+        final double lon = currentLon;
+
+        new Thread(() -> {
+            ArrayList<PoiPoint> result = new ArrayList<>();
+            try {
+                String query = buildPoiOverpassQuery(lat, lon);
+                URL url = new URL("https://overpass-api.de/api/interpreter");
+                HttpURLConnection c = (HttpURLConnection) url.openConnection();
+                c.setConnectTimeout(12000);
+                c.setReadTimeout(18000);
+                c.setRequestMethod("POST");
+                c.setDoOutput(true);
+                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+                byte[] body = ("data=" + URLEncoder.encode(query, "UTF-8")).getBytes("UTF-8");
+                c.setFixedLengthStreamingMode(body.length);
+                OutputStream os = c.getOutputStream();
+                os.write(body);
+                os.close();
+
+                BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+
+                JSONObject root = new JSONObject(sb.toString());
+                JSONArray elements = root.optJSONArray("elements");
+                if (elements != null) {
+                    for (int i = 0; i < elements.length(); i++) {
+                        JSONObject e = elements.getJSONObject(i);
+                        JSONObject tags = e.optJSONObject("tags");
+                        if (tags == null) continue;
+
+                        double pLat;
+                        double pLon;
+                        if (e.has("lat") && e.has("lon")) {
+                            pLat = e.getDouble("lat");
+                            pLon = e.getDouble("lon");
+                        } else {
+                            JSONObject center = e.optJSONObject("center");
+                            if (center == null) continue;
+                            pLat = center.getDouble("lat");
+                            pLon = center.getDouble("lon");
+                        }
+
+                        String type = poiType(tags);
+                        String emoji = poiEmoji(tags);
+                        String name = tags.optString("name", "");
+                        if (name.trim().isEmpty()) name = type;
+
+                        double dist = distanceMeters(lat, lon, pLat, pLon);
+                        if (dist <= 9000) result.add(new PoiPoint(name, type, emoji, pLat, pLon, dist));
+                    }
+                }
+
+                Collections.sort(result, (a, b) -> Double.compare(a.distance, b.distance));
+                ArrayList<PoiPoint> limited = new ArrayList<>();
+                for (PoiPoint p : result) {
+                    boolean duplicate = false;
+                    for (PoiPoint existing : limited) {
+                        if (distanceMeters(existing.lat, existing.lon, p.lat, p.lon) < 35 || existing.name.equalsIgnoreCase(p.name)) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    if (!duplicate) limited.add(p);
+                    if (limited.size() >= 20) break;
+                }
+
+                uiHandler.post(() -> {
+                    poiFetchRunning = false;
+                    poiPoints.clear();
+                    poiPoints.addAll(limited);
+                    poiIndex = 0;
+                    updatePoiInfoUi();
+                    if (poiPoints.isEmpty()) {
+                        if (poiInfoText != null) poiInfoText.setText("POI: brak w pobliżu");
+                    }
+                });
+            } catch (Exception ex) {
+                uiHandler.post(() -> {
+                    poiFetchRunning = false;
+                    if (poiInfoText != null) poiInfoText.setText("POI: brak internetu");
+                });
+            }
+        }).start();
+    }
+
+    private String buildPoiOverpassQuery(double lat, double lon) {
+        String pos = String.format(Locale.US, "%.6f,%.6f", lat, lon);
+        return "[out:json][timeout:18];(" +
+                "node[amenity=fuel](around:7000," + pos + ");" +
+                "way[amenity=fuel](around:7000," + pos + ");" +
+                "node[shop~\"supermarket|convenience|bakery|general\"](around:5000," + pos + ");" +
+                "way[shop~\"supermarket|convenience|bakery|general\"](around:5000," + pos + ");" +
+                "node[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint\"](around:9000," + pos + ");" +
+                "way[tourism~\"alpine_hut|wilderness_hut|camp_site|information|viewpoint\"](around:9000," + pos + ");" +
+                "node[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police\"](around:5000," + pos + ");" +
+                "way[amenity~\"pharmacy|parking|restaurant|cafe|hospital|police\"](around:5000," + pos + ");" +
+                ");out center tags 40;";
+    }
+
+    private String poiType(JSONObject tags) {
+        String amenity = tags.optString("amenity", "");
+        String shop = tags.optString("shop", "");
+        String tourism = tags.optString("tourism", "");
+
+        if ("fuel".equals(amenity)) return "Stacja";
+        if ("pharmacy".equals(amenity)) return "Apteka";
+        if ("parking".equals(amenity)) return "Parking";
+        if ("restaurant".equals(amenity)) return "Restauracja";
+        if ("cafe".equals(amenity)) return "Kawiarnia";
+        if ("hospital".equals(amenity)) return "Szpital";
+        if ("police".equals(amenity)) return "Policja";
+        if (!shop.isEmpty()) return "Sklep";
+        if ("alpine_hut".equals(tourism) || "wilderness_hut".equals(tourism)) return "Schronisko";
+        if ("camp_site".equals(tourism)) return "Kemping";
+        if ("viewpoint".equals(tourism)) return "Punkt widokowy";
+        if ("information".equals(tourism)) return "Informacja";
+        return "POI";
+    }
+
+    private String poiEmoji(JSONObject tags) {
+        String type = poiType(tags);
+        if ("Stacja".equals(type)) return "⛽";
+        if ("Sklep".equals(type)) return "🛒";
+        if ("Schronisko".equals(type)) return "🏠";
+        if ("Kemping".equals(type)) return "⛺";
+        if ("Parking".equals(type)) return "🅿";
+        if ("Apteka".equals(type)) return "✚";
+        if ("Restauracja".equals(type)) return "🍽";
+        if ("Kawiarnia".equals(type)) return "☕";
+        if ("Szpital".equals(type)) return "🏥";
+        if ("Policja".equals(type)) return "🚓";
+        if ("Punkt widokowy".equals(type)) return "⛰";
+        return "◆";
+    }
 
     private void updateCurrentLocationFromPoints(String pointsJson) {
         try {
@@ -886,6 +1207,19 @@ public class MainActivity extends android.app.Activity {
             currentLat = p.getDouble(0);
             currentLon = p.getDouble(1);
             hasCurrentLocation = true;
+
+            if (arr.length() >= 2) {
+                JSONArray prev = arr.getJSONArray(arr.length() - 2);
+                double prevLat = prev.getDouble(0);
+                double prevLon = prev.getDouble(1);
+                double moved = distanceMeters(prevLat, prevLon, currentLat, currentLon);
+                if (moved >= 2.0) {
+                    courseBearing = bearingDegrees(prevLat, prevLon, currentLat, currentLon);
+                    hasCourseBearing = true;
+                }
+            }
+            fetchPoiIfNeeded(false);
+            updatePoiInfoUi();
         } catch (Exception ignored) {}
     }
 
@@ -900,8 +1234,10 @@ public class MainActivity extends android.app.Activity {
                 .apply();
         if (routeView != null) routeView.setTargetPoint(lat, lon);
         if (activeFullMap != null) activeFullMap.setTargetPoint(lat, lon);
+        View hapticView = activeFullMap != null ? activeFullMap : routeView;
+        if (hapticView != null) hapticView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         updateCompassAndTargetUi();
-        Toast.makeText(this, "Cel ustawiony. Wskaźnik kompasu prowadzi do punktu.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Cel ustawiony. Turkusowa igła prowadzi do punktu.", Toast.LENGTH_LONG).show();
     }
 
     private void loadSavedTargetPoint() {
@@ -913,16 +1249,18 @@ public class MainActivity extends android.app.Activity {
 
     private void updateCompassAndTargetUi() {
         if (routeView != null && hasTargetPoint) routeView.setTargetPoint(targetLat, targetLon);
+        double targetBearing = 0;
+        if (hasTargetPoint && hasCurrentLocation) {
+            targetBearing = bearingDegrees(currentLat, currentLon, targetLat, targetLon);
+        }
         if (targetCompassView != null) {
             targetCompassView.setVisibility(hasTargetPoint ? View.VISIBLE : View.INVISIBLE);
-            if (hasTargetPoint && hasCurrentLocation) {
-                targetCompassView.setRotation((float) bearingDegrees(currentLat, currentLon, targetLat, targetLon));
-            } else {
-                targetCompassView.setRotation(0f);
-            }
+            targetCompassView.setAlpha(hasTargetPoint ? 1f : 0f);
+            targetCompassView.setRotation((float) targetBearing);
+            targetCompassView.bringToFront();
         }
         if (compassNeedleView != null) {
-            compassNeedleView.setRotation(0f);
+            compassNeedleView.setRotation(hasCourseBearing ? (float) courseBearing : 0f);
         }
         if (targetInfoText != null) {
             if (hasTargetPoint && hasCurrentLocation) {
@@ -934,6 +1272,7 @@ public class MainActivity extends android.app.Activity {
                 targetInfoText.setText("Przytrzymaj mapę\naby ustawić cel");
             }
         }
+        updatePoiInfoUi();
     }
 
     private double distanceMeters(double lat1, double lon1, double lat2, double lon2) {

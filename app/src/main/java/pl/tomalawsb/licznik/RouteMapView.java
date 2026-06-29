@@ -8,6 +8,8 @@ import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -42,6 +44,7 @@ public class RouteMapView extends FrameLayout {
     private GeoPoint targetPoint = null;
     private OnTargetSelectedListener targetSelectedListener = null;
     private MapEventsOverlay targetEventsOverlay = null;
+    private GestureDetector targetGestureDetector = null;
 
     public RouteMapView(Context context) {
         super(context);
@@ -104,8 +107,12 @@ public class RouteMapView extends FrameLayout {
         mapView.setFlingEnabled(enabled);
         mapView.setClickable(enabled);
         if (enabled) {
-            mapView.setOnTouchListener(null);
+            ensureTargetGestureDetector();
             ensureTargetEventsOverlay();
+            mapView.setOnTouchListener((v, event) -> {
+                if (targetGestureDetector != null) targetGestureDetector.onTouchEvent(event);
+                return false;
+            });
         } else {
             mapView.setOnTouchListener((v, event) -> {
                 if (event.getAction() == MotionEvent.ACTION_UP) performClick();
@@ -117,6 +124,7 @@ public class RouteMapView extends FrameLayout {
 
     public void setOnTargetSelectedListener(OnTargetSelectedListener listener) {
         targetSelectedListener = listener;
+        ensureTargetGestureDetector();
         ensureTargetEventsOverlay();
     }
 
@@ -128,6 +136,28 @@ public class RouteMapView extends FrameLayout {
     public void clearTargetPoint() {
         targetPoint = null;
         redrawRoute();
+    }
+
+
+    private void ensureTargetGestureDetector() {
+        if (targetGestureDetector != null) return;
+        targetGestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
+            @Override public void onLongPress(MotionEvent e) {
+                if (!interactive || targetSelectedListener == null || e == null) return;
+                try {
+                    android.graphics.Point screenPoint = new android.graphics.Point((int) e.getX(), (int) e.getY());
+                    GeoPoint p = (GeoPoint) mapView.getProjection().fromPixels(screenPoint.x, screenPoint.y);
+                    if (p != null) {
+                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                        targetSelectedListener.onTargetSelected(p.getLatitude(), p.getLongitude());
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            @Override public boolean onDown(MotionEvent e) {
+                return true;
+            }
+        });
     }
 
     private void ensureTargetEventsOverlay() {

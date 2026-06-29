@@ -1,30 +1,25 @@
-# Licznik jazdy 3.2
+# Licznik jazdy 3.4
 
-Wersja: **3.2 - 2906260712**  
-`versionCode`: **30200**
+Wersja: **3.4 - 2906261015**  
+`versionCode`: **30400**
 
-## Najważniejsze zmiany
+## Nowe POI pod kompasem
 
-- Kompas przeniesiony na mapę na ekranie głównym.
-- Kompas składa się z osobnych warstw PNG:
-  - `kompas_tarcza.png`,
-  - `kompas_igla_glowna.png`,
-  - `kompas_wskaznik_celu.png`.
-- Wskaźnik celu obraca się niezależnie od głównej igły.
-- Dłuższe przytrzymanie palcem na dużej mapie ustawia punkt docelowy.
-- Pod kompasem pokazuje się odległość do celu w linii prostej.
-- Duża mapa aktualizuje bieżącą pozycję podczas jazdy.
-- Okno dużej mapy zamyka się jednym kliknięciem.
-- Tekst średniej i maksymalnej prędkości na zielonym panelu zwiększony o 2 punkty.
+Dodano mały kafelek POI pod kompasem:
 
-## Budowanie APK
+- pokazuje najbliższy punkt orientacyjny z OpenStreetMap/Overpass,
+- obsługuje m.in. stacje paliw, sklepy, schroniska, kempingi, parkingi, apteki, restauracje, kawiarnie, szpitale, policję i punkty widokowe,
+- po kliknięciu kafelek przełącza się na kolejny punkt,
+- bez dotykania przełącza się automatycznie co 3 minuty,
+- po dłuższym przytrzymaniu kafelka POI ustawia się jako cel kompasu,
+- przy punkcie wyświetlana jest odległość i strzałka kierunku.
 
-Po wrzuceniu projektu na GitHub uruchomi się GitHub Actions i zbuduje:
+## APK
 
-`Licznik-v3.2-2906260712.apk`
+Po wysłaniu na GitHub Actions buduje:
 
-Możesz użyć:
+`Licznik-v3.4-2906261015.apk`
 
-`URUCHOM_WSZYSTKO.ps1`
+## Uwaga techniczna
 
-Skrypt robi commit i push do `main`, a APK buduje GitHub Actions.
+POI są pobierane dynamicznie przez internet z Overpass API. Gdy nie ma internetu albo serwer Overpass chwilowo nie odpowiada, kafelek pokaże informację `POI: brak internetu`.
